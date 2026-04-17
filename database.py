@@ -32,7 +32,23 @@ def _load_env_file():
 
 
 _load_env_file()
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip().strip('"').strip("'")
+
+
+def _get_database_url():
+    for key in (
+        "DATABASE_URL",
+        "POSTGRES_URL",
+        "POSTGRES_PRISMA_URL",
+        "POSTGRES_URL_NON_POOLING",
+        "SUPABASE_DATABASE_URL",
+    ):
+        value = os.environ.get(key, "").strip().strip('"').strip("'")
+        if value:
+            return value
+    return ""
+
+
+DATABASE_URL = _get_database_url()
 _POSTGRES_CONNECTION = None
 
 
