@@ -308,6 +308,7 @@ def dashboard():
         date_from=date_from,
         date_to=date_to,
     )
+    summary_totals = combine_totals(pending_totals, received_totals)
 
     return render_template(
         "dashboard.html",
@@ -321,6 +322,7 @@ def dashboard():
         pending_totals=pending_totals,
         received_rows=received_rows,
         received_totals=received_totals,
+        summary_totals=summary_totals,
     )
 
 
@@ -468,6 +470,15 @@ def get_transactions(
         "pending": total_row[3] or 0,
     }
     return rows, totals
+
+
+def combine_totals(pending_totals, received_totals):
+    return {
+        "deals": pending_totals["count"] + received_totals["count"],
+        "expected": pending_totals["expected"] + received_totals["expected"],
+        "received": pending_totals["received"] + received_totals["received"],
+        "pending": pending_totals["pending"] + received_totals["pending"],
+    }
 
 
 def get_collectors():

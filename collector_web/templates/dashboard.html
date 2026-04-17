@@ -38,36 +38,20 @@
 
   <section class="stats">
     <div>
-      <span>Pending Deals</span>
-      <strong>{{ pending_totals.count }}</strong>
+      <span>Total Deals</span>
+      <strong>{{ summary_totals.deals }}</strong>
     </div>
     <div>
       <span>Expected EUR</span>
-      <strong>{{ pending_totals.expected|money }}</strong>
+      <strong>{{ summary_totals.expected|money }}</strong>
     </div>
     <div>
       <span>Received EUR</span>
-      <strong>{{ pending_totals.received|money }}</strong>
+      <strong>{{ summary_totals.received|money }}</strong>
     </div>
     <div>
       <span>Still Pending</span>
-      <strong>{{ pending_totals.pending|money }}</strong>
-    </div>
-    <div>
-      <span>Received Deals</span>
-      <strong>{{ received_totals.count }}</strong>
-    </div>
-    <div>
-      <span>Received EUR</span>
-      <strong>{{ received_totals.received|money }}</strong>
-    </div>
-    <div>
-      <span>Received Expected</span>
-      <strong>{{ received_totals.expected|money }}</strong>
-    </div>
-    <div>
-      <span>Received Pending</span>
-      <strong>{{ received_totals.pending|money }}</strong>
+      <strong>{{ summary_totals.pending|money }}</strong>
     </div>
   </section>
 
