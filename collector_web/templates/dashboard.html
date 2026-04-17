@@ -19,10 +19,22 @@
   {% endwith %}
 
   <form method="get" action="{{ url_for('dashboard') }}" class="search">
-    <input name="search" value="{{ search }}" placeholder="Search customer or currency">
+    <input name="search" value="{{ search }}" placeholder="Search customer, currency, or number">
+    <select name="period">
+      <option value="today" {% if period == "today" %}selected{% endif %}>Today</option>
+      <option value="yesterday" {% if period == "yesterday" %}selected{% endif %}>Yesterday</option>
+      <option value="this_week" {% if period == "this_week" %}selected{% endif %}>This Week</option>
+      <option value="last_week" {% if period == "last_week" %}selected{% endif %}>Last Week</option>
+      <option value="this_month" {% if period == "this_month" %}selected{% endif %}>This Month</option>
+      <option value="all" {% if period == "all" %}selected{% endif %}>All</option>
+    </select>
+    <input name="date_from" type="date" value="{{ date_from }}" title="From date">
+    <input name="date_to" type="date" value="{{ date_to }}" title="To date">
     <button type="submit">Search</button>
     <a href="{{ url_for('dashboard') }}">Clear</a>
   </form>
+
+  <p class="filter-label">Showing: {{ date_label }}</p>
 
   <section class="stats">
     <div>
@@ -40,6 +52,22 @@
     <div>
       <span>Still Pending</span>
       <strong>{{ pending_totals.pending|money }}</strong>
+    </div>
+    <div>
+      <span>Received Deals</span>
+      <strong>{{ received_totals.count }}</strong>
+    </div>
+    <div>
+      <span>Received EUR</span>
+      <strong>{{ received_totals.received|money }}</strong>
+    </div>
+    <div>
+      <span>Received Expected</span>
+      <strong>{{ received_totals.expected|money }}</strong>
+    </div>
+    <div>
+      <span>Received Pending</span>
+      <strong>{{ received_totals.pending|money }}</strong>
     </div>
   </section>
 
@@ -88,7 +116,7 @@
   </section>
 
   <section class="section">
-    <h2>Recently Received</h2>
+    <h2>Received</h2>
     {% if received_rows %}
       <div class="table-wrap">
         <table>

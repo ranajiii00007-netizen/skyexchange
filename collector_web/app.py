@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 
 from flask import (
@@ -88,6 +88,33 @@ def customer_phones(row):
 
 
 app.jinja_env.filters["customer_phones"] = customer_phones
+
+
+def resolve_date_filter(period, date_from, date_to):
+    today = date.today()
+    period = (period or "today").strip().lower()
+    date_from = (date_from or "").strip()
+    date_to = (date_to or "").strip()
+
+    if date_from or date_to:
+        return date_from or None, date_to or None, "custom", "Custom"
+
+    if period == "all":
+        return None, None, "all", "All"
+    if period == "yesterday":
+        day = today - timedelta(days=1)
+        return str(day), str(day), "yesterday", "Yesterday"
+    if period == "this_week":
+        start = today - timedelta(days=today.weekday())
+        return str(start), str(today), "this_week", "This Week"
+    if period == "last_week":
+        start = today - timedelta(days=today.weekday() + 7)
+        end = start + timedelta(days=6)
+        return str(start), str(end), "last_week", "Last Week"
+    if period == "this_month":
+        return str(today.replace(day=1)), str(today), "this_month", "This Month"
+
+    return str(today), str(today), "today", "Today"
 
 
 @app.route("/healthz")
@@ -259,23 +286,37 @@ def admin_reset_user_password(user_id):
 def dashboard():
     collector_name = session["collector_name"]
     search = request.args.get("search", "").strip()
+    raw_date_from = request.args.get("date_from", "").strip()
+    raw_date_to = request.args.get("date_to", "").strip()
+    date_from, date_to, period, date_label = resolve_date_filter(
+        request.args.get("period"),
+        raw_date_from,
+        raw_date_to,
+    )
 
     pending_rows, pending_totals = get_transactions(
         collector_name=collector_name,
         status="OPEN",
         search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
     received_rows, received_totals = get_transactions(
         collector_name=collector_name,
         status="CLOSED",
         search=search,
-        limit=25,
+        date_from=date_from,
+        date_to=date_to,
     )
 
     return render_template(
         "dashboard.html",
         collector_name=collector_name,
         search=search,
+        period=period,
+        date_from=raw_date_from,
+        date_to=raw_date_to,
+        date_label=date_label,
         pending_rows=pending_rows,
         pending_totals=pending_totals,
         received_rows=received_rows,
@@ -358,12 +399,26 @@ def receive(transaction_id):
     return redirect(url_for("dashboard"))
 
 
-def get_transactions(collector_name, status, search="", limit=None):
+def get_transactions(
+    collector_name,
+    status,
+    search="",
+    date_from=None,
+    date_to=None,
+    limit=None,
+):
     conn = db()
     cur = conn.cursor()
 
     clauses = ["LOWER(t.collector_name)=LOWER(?)", "t.status=?"]
     params = [collector_name, status]
+
+    if date_from:
+        clauses.append("t.deal_date>=?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("t.deal_date<=?")
+        params.append(date_to)
 
     if search:
         clauses.append(

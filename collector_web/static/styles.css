@@ -147,8 +147,14 @@ button:hover,
 }
 
 .search {
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(180px, 1fr) 150px 150px 150px auto auto;
   margin-bottom: 16px;
+}
+
+.filter-label {
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 14px;
 }
 
 .stats {
