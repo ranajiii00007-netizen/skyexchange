@@ -300,6 +300,7 @@ def dashboard():
         search=search,
         date_from=date_from,
         date_to=date_to,
+        date_field="deal_date",
     )
     received_rows, received_totals = get_transactions(
         collector_name=collector_name,
@@ -307,6 +308,7 @@ def dashboard():
         search=search,
         date_from=date_from,
         date_to=date_to,
+        date_field="received_date",
     )
     summary_totals = combine_totals(pending_totals, received_totals)
 
@@ -331,6 +333,11 @@ def dashboard():
 def receive(transaction_id):
     collector_name = session["collector_name"]
     amount_text = request.form.get("amount", "").strip()
+    redirect_args = {
+        key: request.form.get(key, "").strip()
+        for key in ("search", "period", "date_from", "date_to")
+        if request.form.get(key, "").strip()
+    }
 
     try:
         amount = float(amount_text)
@@ -338,7 +345,7 @@ def receive(transaction_id):
             raise ValueError
     except ValueError:
         flash("Enter a valid received amount.", "error")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("dashboard", **redirect_args))
 
     conn = db()
     cur = conn.cursor()
@@ -361,7 +368,7 @@ def receive(transaction_id):
         if not row:
             flash("Transaction was not found or is already closed.", "error")
             conn.rollback()
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("dashboard", **redirect_args))
 
         expected = float(row[0] or 0)
         already_received = float(row[1] or 0)
@@ -370,7 +377,7 @@ def receive(transaction_id):
         if new_received > expected:
             flash("Receiving amount is more than the pending amount.", "error")
             conn.rollback()
-            return redirect(url_for("dashboard"))
+            return redirect(url_for("dashboard", **redirect_args))
 
         pending = expected - new_received
         status = "CLOSED" if pending == 0 else "OPEN"
@@ -398,7 +405,7 @@ def receive(transaction_id):
     finally:
         conn.close()
 
-    return redirect(url_for("dashboard"))
+    return redirect(url_for("dashboard", **redirect_args))
 
 
 def get_transactions(
@@ -407,6 +414,7 @@ def get_transactions(
     search="",
     date_from=None,
     date_to=None,
+    date_field="deal_date",
     limit=None,
 ):
     conn = db()
@@ -416,10 +424,10 @@ def get_transactions(
     params = [collector_name, status]
 
     if date_from:
-        clauses.append("t.deal_date>=?")
+        clauses.append(f"t.{date_field}>=?")
         params.append(date_from)
     if date_to:
-        clauses.append("t.deal_date<=?")
+        clauses.append(f"t.{date_field}<=?")
         params.append(date_to)
 
     if search:
