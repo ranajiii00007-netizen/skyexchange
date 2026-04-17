@@ -29,21 +29,27 @@ ADMIN_PASSWORD = os.environ.get("COLLECTOR_ADMIN_PASSWORD", "admin123")
 _DATABASE_READY = False
 
 
+def is_vercel():
+    return bool(os.environ.get("VERCEL"))
+
+
 def ensure_database_ready():
     global _DATABASE_READY
     if _DATABASE_READY:
         return
 
-    if os.environ.get("VERCEL") and not database.using_postgres():
+    if is_vercel() and not database.using_postgres():
         raise RuntimeError("DATABASE_URL is not configured in Vercel.")
 
-    database.create_tables()
+    if not is_vercel():
+        database.create_tables()
+
     _DATABASE_READY = True
 
 
 def db():
     ensure_database_ready()
-    return database.connect_db(reuse_postgres=False)
+    return database.connect_db(reuse_postgres=is_vercel())
 
 
 def login_required(view_func):
