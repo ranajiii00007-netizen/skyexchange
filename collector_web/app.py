@@ -483,6 +483,7 @@ def get_transactions(
 def combine_totals(pending_totals, received_totals):
     return {
         "deals": pending_totals["count"] + received_totals["count"],
+        "pending_deals": pending_totals["count"],
         "expected": pending_totals["expected"] + received_totals["expected"],
         "received": pending_totals["received"] + received_totals["received"],
         "pending": pending_totals["pending"] + received_totals["pending"],
