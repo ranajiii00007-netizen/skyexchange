@@ -54,6 +54,14 @@
                 <span class="date">{{ row[1] }} · {{ row[3] }}</span>
                 <h3>{{ row[4] }}</h3>
                 <p>{{ row[6] }} · Banker: {{ row[5] or "None" }}</p>
+                {% set phones = row|customer_phones %}
+                {% if phones %}
+                  <div class="phones">
+                    {% for phone in phones %}
+                      <a href="tel:{{ phone }}">Number {{ loop.index }}: {{ phone }}</a>
+                    {% endfor %}
+                  </div>
+                {% endif %}
               </div>
               <div class="amount">
                 <span>Pending</span>
@@ -89,6 +97,7 @@
               <th>Deal</th>
               <th>Received</th>
               <th>Customer</th>
+              <th>Numbers</th>
               <th>Currency</th>
               <th>EUR</th>
             </tr>
@@ -99,6 +108,14 @@
                 <td>{{ row[1] }}</td>
                 <td>{{ row[2] or "" }}</td>
                 <td>{{ row[4] }}</td>
+                <td>
+                  {% set phones = row|customer_phones %}
+                  {% if phones %}
+                    {% for phone in phones %}
+                      <a class="phone-link" href="tel:{{ phone }}">{{ loop.index }}: {{ phone }}</a>
+                    {% endfor %}
+                  {% endif %}
+                </td>
                 <td>{{ row[6] }}</td>
                 <td>{{ row[8]|money }}</td>
               </tr>

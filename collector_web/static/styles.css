@@ -234,6 +234,30 @@ button:hover,
   margin: 12px 0;
 }
 
+.phones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.phones a,
+.phone-link {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--brand-dark);
+  background: var(--soft);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.phone-link {
+  margin: 2px 4px 2px 0;
+}
+
 .receive-form {
   grid-template-columns: minmax(0, 1fr) auto;
 }

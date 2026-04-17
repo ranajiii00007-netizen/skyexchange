@@ -79,6 +79,17 @@ def money(value):
 app.jinja_env.filters["money"] = money
 
 
+def customer_phones(row):
+    phones = []
+    for value in row[11:14]:
+        if value and str(value).strip():
+            phones.append(str(value).strip())
+    return phones
+
+
+app.jinja_env.filters["customer_phones"] = customer_phones
+
+
 @app.route("/healthz")
 def healthz():
     if not database.using_postgres():
@@ -356,17 +367,26 @@ def get_transactions(collector_name, status, search="", limit=None):
 
     if search:
         clauses.append(
-            "(LOWER(t.customer_name) LIKE ? OR LOWER(t.target_currency) LIKE ?)"
+            "("
+            "LOWER(t.customer_name) LIKE ? OR "
+            "LOWER(t.target_currency) LIKE ? OR "
+            "LOWER(COALESCE(c.phone, '')) LIKE ? OR "
+            "LOWER(COALESCE(c.phone2, '')) LIKE ? OR "
+            "LOWER(COALESCE(c.phone3, '')) LIKE ?"
+            ")"
         )
-        params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
+        search_value = f"%{search.lower()}%"
+        params.extend([search_value, search_value, search_value, search_value, search_value])
 
     where_clause = " AND ".join(clauses)
     query = (
         "SELECT t.id, t.deal_date, t.received_date, "
         "COALESCE(t.transaction_type, 'REGULAR') AS transaction_type, "
         "t.customer_name, t.banker_name, t.target_currency, "
-        "t.eur_expected, t.eur_received, t.pending_eur, t.notes "
+        "t.eur_expected, t.eur_received, t.pending_eur, t.notes, "
+        "c.phone, c.phone2, c.phone3 "
         "FROM transactions t "
+        "LEFT JOIN customers c ON LOWER(TRIM(c.name)) = LOWER(TRIM(t.customer_name)) "
         f"WHERE {where_clause} "
         "ORDER BY t.id DESC"
     )
@@ -379,6 +399,7 @@ def get_transactions(collector_name, status, search="", limit=None):
     totals_query = (
         "SELECT COUNT(*), SUM(t.eur_expected), SUM(t.eur_received), SUM(t.pending_eur) "
         "FROM transactions t "
+        "LEFT JOIN customers c ON LOWER(TRIM(c.name)) = LOWER(TRIM(t.customer_name)) "
         f"WHERE {where_clause}"
     )
     cur.execute(totals_query, params)
