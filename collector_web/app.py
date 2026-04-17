@@ -6,6 +6,7 @@ from functools import wraps
 from flask import (
     Flask,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -25,10 +26,23 @@ import database  # noqa: E402
 app = Flask(__name__)
 app.secret_key = os.environ.get("COLLECTOR_WEB_SECRET", "change-this-secret")
 ADMIN_PASSWORD = os.environ.get("COLLECTOR_ADMIN_PASSWORD", "admin123")
-database.create_tables()
+_DATABASE_READY = False
+
+
+def ensure_database_ready():
+    global _DATABASE_READY
+    if _DATABASE_READY:
+        return
+
+    if os.environ.get("VERCEL") and not database.using_postgres():
+        raise RuntimeError("DATABASE_URL is not configured in Vercel.")
+
+    database.create_tables()
+    _DATABASE_READY = True
 
 
 def db():
+    ensure_database_ready()
     return database.connect_db(reuse_postgres=False)
 
 
@@ -57,6 +71,23 @@ def money(value):
 
 
 app.jinja_env.filters["money"] = money
+
+
+@app.route("/healthz")
+def healthz():
+    if not database.using_postgres():
+        return jsonify({"ok": False, "error": "DATABASE_URL is not configured"}), 500
+
+    try:
+        conn = database.connect_db(reuse_postgres=False)
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        conn.close()
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({"ok": True})
 
 
 @app.route("/", methods=["GET", "POST"])
