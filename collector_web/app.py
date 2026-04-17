@@ -79,15 +79,18 @@ def healthz():
         return jsonify({"ok": False, "error": "DATABASE_URL is not configured"}), 500
 
     try:
+        ensure_database_ready()
         conn = database.connect_db(reuse_postgres=False)
         cur = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.fetchone()
+        checks = {}
+        for table_name in ("collector_users", "collectors", "transactions"):
+            cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+            checks[table_name] = cur.fetchone()[0]
         conn.close()
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify({"ok": False, "error": type(exc).__name__, "detail": str(exc)}), 500
 
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "tables": checks})
 
 
 @app.route("/", methods=["GET", "POST"])
