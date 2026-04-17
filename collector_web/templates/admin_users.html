@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block body %}
+<header class="topbar">
+  <div>
+    <p class="eyebrow">SKY EXCHANGE</p>
+    <h1>Collector Access</h1>
+  </div>
+  <a class="logout" href="{{ url_for('logout') }}">Logout</a>
+</header>
+
+<main class="dashboard">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <section class="admin-grid">
+    <form method="post" action="{{ url_for('admin_create_user') }}" class="admin-panel">
+      <h2>Create Collector Account</h2>
+      <label>
+        Collector
+        <select name="collector_name" required>
+          <option value="">Select collector</option>
+          {% for collector in collectors %}
+            <option value="{{ collector }}">{{ collector }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Username
+        <input name="username" autocomplete="off" required>
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="new-password" required>
+      </label>
+      <button type="submit">Create Account</button>
+    </form>
+
+    <section class="admin-panel">
+      <h2>Current Access</h2>
+      {% if users %}
+        <div class="access-list">
+          {% for user in users %}
+            <article class="access-row">
+              <div>
+                <strong>{{ user[2] }}</strong>
+                <span>{{ user[1] }}</span>
+                <small>{{ "Enabled" if user[3] else "Disabled" }} · {{ user[4] or "" }}</small>
+              </div>
+              <form method="post" action="{{ url_for('admin_set_user_status', user_id=user[0]) }}">
+                {% if user[3] %}
+                  <input type="hidden" name="status" value="0">
+                  <button class="secondary danger" type="submit">Disable</button>
+                {% else %}
+                  <input type="hidden" name="status" value="1">
+                  <button class="secondary" type="submit">Enable</button>
+                {% endif %}
+              </form>
+              <form method="post" action="{{ url_for('admin_reset_user_password', user_id=user[0]) }}" class="reset-form">
+                <input name="password" type="password" placeholder="New password" required>
+                <button class="secondary" type="submit">Reset</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">No collector accounts yet.</p>
+      {% endif %}
+    </section>
+  </section>
+</main>
+{% endblock %}

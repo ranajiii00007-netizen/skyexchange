@@ -1,0 +1,15 @@
+env
+.env
+*.db
+*.db-shm
+*.db-wal
+*.rar
+*.pdf
+__pycache__/
+.venv/
+myenv/
+build/
+dist/
+pages/__pycache__/
+collector_web/__pycache__/
+*.spec

@@ -1,0 +1,13 @@
+.env
+env
+*.db
+*.db-shm
+*.db-wal
+*.rar
+__pycache__/
+.venv/
+myenv/
+build/
+dist/
+*.spec
+*.pdf

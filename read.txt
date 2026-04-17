@@ -1,0 +1,3 @@
+ pyinstaller --onefile --clean main.py
+myenv\Scripts\activate
+python -m PyInstaller --onefile --clean --collect-all reportlab main.py

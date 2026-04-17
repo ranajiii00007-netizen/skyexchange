@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block body %}
+<main class="login-shell">
+  <section class="login-panel">
+    <p class="eyebrow">SKY EXCHANGE</p>
+    <h1>Admin Login</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert {{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" class="login-form">
+      <label>
+        Admin Password
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Open Admin</button>
+    </form>
+    <p class="switch-link"><a href="{{ url_for('login') }}">Collector login</a></p>
+  </section>
+</main>
+{% endblock %}
