@@ -19,7 +19,7 @@
   {% endwith %}
 
   <form method="get" action="{{ url_for('dashboard') }}" class="search">
-    <input name="search" value="{{ search }}" placeholder="Search customer, currency, or number">
+    <input name="search" value="{{ search }}" placeholder="Search customer or number">
     <select name="period">
       <option value="today" {% if period == "today" %}selected{% endif %}>Today</option>
       <option value="yesterday" {% if period == "yesterday" %}selected{% endif %}>Yesterday</option>
@@ -69,7 +69,6 @@
               <div>
                 <span class="date">{{ row[1] }} · {{ row[3] }}</span>
                 <h3>{{ row[4] }}</h3>
-                <p>{{ row[6] }} · Banker: {{ row[5] or "None" }}</p>
                 {% set phones = row|customer_phones %}
                 {% if phones %}
                   <div class="phones">
@@ -118,7 +117,6 @@
               <th>Received</th>
               <th>Customer</th>
               <th>Numbers</th>
-              <th>Currency</th>
               <th>EUR</th>
             </tr>
           </thead>
@@ -136,7 +134,6 @@
                     {% endfor %}
                   {% endif %}
                 </td>
-                <td>{{ row[6] }}</td>
                 <td>{{ row[8]|money }}</td>
               </tr>
             {% endfor %}
