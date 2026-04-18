@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 import database
 import styles
 
@@ -14,7 +14,14 @@ from pages.receiving_page import ReceivingPage
 from pages.banker_rates import BankerCurrenciesPage
 from pages.reports import ReportsPage
 
-database.create_tables()
+try:
+    database.create_tables()
+except Exception as exc:
+    root = tk.Tk()
+    root.withdraw()
+    messagebox.showerror("Database Configuration", str(exc))
+    root.destroy()
+    raise SystemExit(1) from exc
 
 
 def db():

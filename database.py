@@ -52,6 +52,24 @@ DATABASE_URL = _get_database_url()
 _POSTGRES_CONNECTION = None
 
 
+def allow_sqlite_fallback():
+    return os.environ.get("ALLOW_SQLITE_FALLBACK", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def config_help_message():
+    return (
+        "Online database is not configured.\n\n"
+        "To use SKY EXCHANGE on this PC, place a file named env next to the app "
+        "with this line:\n\n"
+        "DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DATABASE\n\n"
+        "Use the same DATABASE_URL on every PC so all users share the same data."
+    )
+
+
 def using_postgres():
     return DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
@@ -105,7 +123,10 @@ def connect_db(reuse_postgres=True):
         conn.commit()
         return PostgresConnection(conn, keep_open=False)
 
-    return _sqlite_connect()
+    if allow_sqlite_fallback():
+        return _sqlite_connect()
+
+    raise RuntimeError(config_help_message())
 
 
 class PostgresConnection:
