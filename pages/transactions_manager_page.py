@@ -688,6 +688,13 @@ class TransactionsManagerPage:
         self.load_transactions()
         self.load_dropdowns()
 
+    def _set_today_dates_if_empty(self):
+        if self.date_from.get().strip() or self.date_to.get().strip():
+            return
+        today = date.today().strftime("%Y-%m-%d")
+        self.date_from.insert(0, today)
+        self.date_to.insert(0, today)
+
     def _transactions_select_query(self):
         return (
             "SELECT id, customer_name, collector_name, banker_name, target_currency, "
@@ -903,11 +910,8 @@ class TransactionsManagerPage:
             self.selected_note_label.config(text="Select a transaction to view notes")
 
     def load_transactions(self):
-        conn = self.db()
-        cur = conn.cursor()
-        cur.execute(f"{self._transactions_select_query()} ORDER BY id DESC")
-        rows = cur.fetchall()
-        self.populate_table(rows)
+        self._set_today_dates_if_empty()
+        self.search_transactions()
 
     def load_selected(self, _event):
         selected = self.table.selection()

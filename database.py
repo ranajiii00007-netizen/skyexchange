@@ -416,6 +416,11 @@ def create_tables():
     """)
 
     cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_deal_date_id
+    ON transactions(deal_date, id)
+    """)
+
+    cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_transactions_customer
     ON transactions(customer_name)
     """)
