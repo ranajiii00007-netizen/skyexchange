@@ -25,12 +25,19 @@ import database  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("COLLECTOR_WEB_SECRET", "change-this-secret")
-ADMIN_PASSWORD = os.environ.get("COLLECTOR_ADMIN_PASSWORD", "admin123")
 _DATABASE_READY = False
 
 
 def is_vercel():
     return bool(os.environ.get("VERCEL"))
+
+
+def get_admin_password():
+    for key in ("COLLECTOR_ADMIN_PASSWORD", "ADMIN_PASSWORD"):
+        value = os.environ.get(key, "")
+        if value.strip():
+            return value.strip()
+    return "admin123"
 
 
 def ensure_database_ready():
@@ -182,8 +189,8 @@ def admin_login():
         return redirect(url_for("admin_users"))
 
     if request.method == "POST":
-        password = request.form.get("password", "")
-        if password == ADMIN_PASSWORD:
+        password = request.form.get("password", "").strip()
+        if password == get_admin_password():
             session.clear()
             session["is_admin"] = True
             return redirect(url_for("admin_users"))
