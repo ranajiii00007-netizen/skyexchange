@@ -10,9 +10,6 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DB_NAME = os.path.join(BASE_DIR, "exchange.db")
-
-
 def _load_env_file():
     for filename in (".env", "env"):
         path = os.path.join(BASE_DIR, filename)
@@ -34,6 +31,17 @@ def _load_env_file():
 _load_env_file()
 
 
+def _get_sqlite_path():
+    configured = os.environ.get("SQLITE_DB_PATH", "").strip().strip('"').strip("'")
+    if not configured:
+        configured = "exchange.db"
+
+    if os.path.isabs(configured):
+        return configured
+
+    return os.path.join(BASE_DIR, configured)
+
+
 def _get_database_url():
     for key in (
         "DATABASE_URL",
@@ -49,7 +57,13 @@ def _get_database_url():
 
 
 DATABASE_URL = _get_database_url()
+DB_NAME = _get_sqlite_path()
 _POSTGRES_CONNECTION = None
+
+
+def postgres_statement_timeout():
+    value = os.environ.get("POSTGRES_STATEMENT_TIMEOUT", "").strip().strip('"').strip("'")
+    return value or "15s"
 
 
 def allow_sqlite_fallback():
@@ -107,7 +121,9 @@ def connect_db(reuse_postgres=True):
                     connect_timeout=10,
                 )
                 with _POSTGRES_CONNECTION.cursor() as cur:
-                    cur.execute("SET statement_timeout = '15s'")
+                    cur.execute(
+                        f"SET statement_timeout = '{postgres_statement_timeout()}'"
+                    )
                 _POSTGRES_CONNECTION.commit()
 
             conn = _POSTGRES_CONNECTION
@@ -119,7 +135,7 @@ def connect_db(reuse_postgres=True):
                 connect_timeout=10,
             )
         with conn.cursor() as cur:
-            cur.execute("SET statement_timeout = '15s'")
+            cur.execute(f"SET statement_timeout = '{postgres_statement_timeout()}'")
         conn.commit()
         return PostgresConnection(conn, keep_open=False)
 
@@ -262,7 +278,7 @@ def _column_exists(cur, table_name, column_name):
 
 
 def create_tables():
-    conn = connect_db()
+    conn = connect_db(reuse_postgres=False)
     cur = conn.cursor()
     id_type = _id_column_type()
 
