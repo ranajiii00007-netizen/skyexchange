@@ -25,7 +25,7 @@ except Exception as exc:
 
 
 def db():
-    return database.connect_db()
+    return database.connect_db(reuse_postgres=False)
 
 
 root = tk.Tk()

@@ -109,34 +109,60 @@ def _sqlite_connect():
     return conn
 
 
+def _open_postgres_connection(psycopg):
+    conn = psycopg.connect(
+        DATABASE_URL,
+        sslmode="require",
+        connect_timeout=10,
+    )
+    with conn.cursor() as cur:
+        cur.execute(f"SET statement_timeout = '{postgres_statement_timeout()}'")
+    conn.commit()
+    return conn
+
+
+def _safe_close(conn):
+    try:
+        conn.close()
+    except Exception:
+        return None
+    return None
+
+
+def _safe_rollback(conn):
+    try:
+        conn.rollback()
+    except Exception:
+        return None
+    return None
+
+
+def _connection_usable(conn):
+    if conn is None or conn.closed:
+        return False
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        return True
+    except Exception:
+        _safe_close(conn)
+        return False
+
+
 def connect_db(reuse_postgres=True):
     if using_postgres():
         psycopg = _require_psycopg()
         if reuse_postgres:
             global _POSTGRES_CONNECTION
-            if _POSTGRES_CONNECTION is None or _POSTGRES_CONNECTION.closed:
-                _POSTGRES_CONNECTION = psycopg.connect(
-                    DATABASE_URL,
-                    sslmode="require",
-                    connect_timeout=10,
-                )
-                with _POSTGRES_CONNECTION.cursor() as cur:
-                    cur.execute(
-                        f"SET statement_timeout = '{postgres_statement_timeout()}'"
-                    )
-                _POSTGRES_CONNECTION.commit()
+            if not _connection_usable(_POSTGRES_CONNECTION):
+                _POSTGRES_CONNECTION = _open_postgres_connection(psycopg)
 
             conn = _POSTGRES_CONNECTION
             return PostgresConnection(conn, keep_open=True)
 
-        conn = psycopg.connect(
-                DATABASE_URL,
-                sslmode="require",
-                connect_timeout=10,
-            )
-        with conn.cursor() as cur:
-            cur.execute(f"SET statement_timeout = '{postgres_statement_timeout()}'")
-        conn.commit()
+        conn = _open_postgres_connection(psycopg)
         return PostgresConnection(conn, keep_open=False)
 
     if allow_sqlite_fallback():
@@ -198,7 +224,7 @@ class PostgresCursor:
                     (table_name,),
                 )
             except Exception:
-                self._conn.rollback()
+                _safe_rollback(self._conn)
                 raise
             self._manual_rows = [
                 (position, column_name, None, None, None, None)
@@ -211,7 +237,7 @@ class PostgresCursor:
         try:
             self._cursor.execute(query, params)
         except Exception:
-            self._conn.rollback()
+            _safe_rollback(self._conn)
             raise
         elapsed = time.perf_counter() - start_time
         if elapsed > 2:
