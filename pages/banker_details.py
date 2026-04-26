@@ -1,4 +1,5 @@
 import tkinter as tk
+from bisect import bisect_left, bisect_right
 from datetime import date, timedelta
 from tkinter import filedialog, messagebox, ttk
 from xml.sax.saxutils import escape
@@ -621,8 +622,21 @@ class BankerPage:
         )
         rows = cur.fetchall()
 
+        transactions = self._fetch_transaction_rows(conn, banker=banker)
+        rate_lookup = self._load_rate_lookup(
+            conn,
+            bankers={banker},
+            currencies={currency for _, currency, _ in transactions},
+        )
+        cumulative_by_date = self._build_cumulative_usd_totals(
+            banker, transactions, rate_lookup
+        )
+        ordered_dates = sorted(cumulative_by_date)
+
         for payment_id, payment_date, paid in rows:
-            total_usd = self._compute_overall_usd_total(banker, up_to_date=payment_date)
+            total_usd = self._cumulative_total_for_date(
+                cumulative_by_date, ordered_dates, payment_date
+            )
             running_paid += float(paid or 0.0)
             remaining = total_usd - running_paid
             cur.execute(
@@ -672,6 +686,114 @@ class BankerPage:
         rate = row[0] if row else None
         conn.close()
         return rate
+
+    def _load_rate_lookup(self, conn, bankers=None, currencies=None):
+        cur = conn.cursor()
+
+        query = (
+            "SELECT banker_name, currency_code, rate_date, id, rate "
+            "FROM banker_currency_rates WHERE 1=1"
+        )
+        params = []
+
+        if bankers:
+            banker_values = sorted({str(banker).strip() for banker in bankers if banker})
+            placeholders = ",".join("?" for _ in banker_values)
+            query += f" AND LOWER(banker_name) IN ({placeholders})"
+            params.extend(name.lower() for name in banker_values)
+
+        if currencies:
+            currency_values = sorted({str(currency).strip() for currency in currencies if currency})
+            placeholders = ",".join("?" for _ in currency_values)
+            query += f" AND currency_code IN ({placeholders})"
+            params.extend(currency_values)
+
+        query += " ORDER BY LOWER(banker_name), currency_code, rate_date, id"
+        cur.execute(query, params)
+
+        lookup = {}
+        for banker_name, currency_code, rate_date, row_id, rate in cur.fetchall():
+            key = (str(banker_name or "").lower(), currency_code)
+            entry = lookup.setdefault(key, {"rows": [], "dates": []})
+            entry["rows"].append((rate_date or "", row_id or 0, rate))
+            entry["dates"].append(rate_date or "")
+
+        return lookup
+
+    def _resolve_rate_from_lookup(self, lookup, banker, currency, deal_date=None):
+        entry = lookup.get((str(banker or "").lower(), currency))
+        if not entry or not entry["rows"]:
+            return None
+
+        rows = entry["rows"]
+        dates = entry["dates"]
+
+        if not deal_date:
+            return rows[-1][2]
+
+        index = bisect_right(dates, deal_date) - 1
+        if index >= 0:
+            return rows[index][2]
+
+        fallback_index = bisect_left(dates, deal_date)
+        if fallback_index < len(rows):
+            return rows[fallback_index][2]
+
+        return None
+
+    def _fetch_transaction_rows(
+        self, conn, banker=None, date_from=None, date_to=None, include_banker=False
+    ):
+        cur = conn.cursor()
+
+        select_cols = "deal_date, target_currency, foreign_amount"
+        if include_banker:
+            select_cols = "deal_date, banker_name, target_currency, foreign_amount"
+
+        query = f"SELECT {select_cols} FROM transactions WHERE 1=1"
+        params = []
+
+        if banker:
+            query += " AND LOWER(banker_name)=LOWER(?)"
+            params.append(banker)
+        if date_from:
+            query += " AND deal_date >= ?"
+            params.append(date_from)
+        if date_to:
+            query += " AND deal_date <= ?"
+            params.append(date_to)
+
+        query += " ORDER BY deal_date DESC"
+        cur.execute(query, params)
+        return cur.fetchall()
+
+    def _build_cumulative_usd_totals(self, banker, transactions, rate_lookup):
+        totals_by_date = {}
+
+        for deal_date, currency, amount in sorted(transactions, key=lambda row: row[0] or ""):
+            rate = self._resolve_rate_from_lookup(
+                rate_lookup, banker, currency, deal_date
+            )
+            usd = (amount / rate) if rate else 0.0
+            totals_by_date[deal_date] = totals_by_date.get(deal_date, 0.0) + usd
+
+        running = 0.0
+        cumulative = {}
+        for deal_date in sorted(totals_by_date):
+            running += totals_by_date[deal_date]
+            cumulative[deal_date] = running
+
+        return cumulative
+
+    def _cumulative_total_for_date(self, cumulative_by_date, ordered_dates, target_date):
+        if not ordered_dates:
+            return 0.0
+
+        index = bisect_right(ordered_dates, target_date) - 1
+        if index < 0:
+            return 0.0
+
+        return cumulative_by_date[ordered_dates[index]]
 
     def _get_rate_cached(self, conn, cache, banker, currency, deal_date=None):
         key = (str(banker or "").lower(), currency, deal_date)
@@ -751,27 +873,23 @@ class BankerPage:
         self.currency_totals = []
 
         conn = self.db()
-        cur = conn.cursor()
-        rate_cache = {}
-
-        query = "SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE TRIM(LOWER(banker_name)) = TRIM(LOWER(?))"
-        params = [banker]
-
-        if self.date_from.get():
-            query += " AND deal_date >= ?"
-            params.append(self.date_from.get())
-        if self.date_to.get():
-            query += " AND deal_date <= ?"
-            params.append(self.date_to.get())
-
-        query += " ORDER BY deal_date DESC"
-        cur.execute(query, params)
+        transactions = self._fetch_transaction_rows(
+            conn,
+            banker=banker,
+            date_from=self.date_from.get() or None,
+            date_to=self.date_to.get() or None,
+        )
+        rate_lookup = self._load_rate_lookup(
+            conn,
+            bankers={banker},
+            currencies={currency for _, currency, _ in transactions},
+        )
 
         totals_by_currency = {}
         total_usd = 0.0
 
-        for deal_date, currency, amount in cur.fetchall():
-            rate = self._get_rate_cached(conn, rate_cache, banker, currency, deal_date)
+        for deal_date, currency, amount in transactions:
+            rate = self._resolve_rate_from_lookup(rate_lookup, banker, currency, deal_date)
             usd = amount / rate if rate else 0.0
             total_usd += usd
 
@@ -836,51 +954,41 @@ class BankerPage:
 
     def _compute_overall_usd_total(self, banker, up_to_date=None):
         conn = self.db()
-        cur = conn.cursor()
-        rate_cache = {}
-        query = (
-            "SELECT deal_date, target_currency, foreign_amount FROM transactions "
-            "WHERE LOWER(banker_name)=LOWER(?)"
+        transactions = self._fetch_transaction_rows(
+            conn, banker=banker, date_to=up_to_date
         )
-        params = [banker]
-
-        if up_to_date:
-            query += " AND deal_date<=?"
-            params.append(up_to_date)
-
-        cur.execute(query, params)
+        rate_lookup = self._load_rate_lookup(
+            conn,
+            bankers={banker},
+            currencies={currency for _, currency, _ in transactions},
+        )
 
         total_usd = 0.0
-        for deal_date, currency, amount in cur.fetchall():
-            rate = self._get_rate_cached(conn, rate_cache, banker, currency, deal_date)
+        for deal_date, currency, amount in transactions:
+            rate = self._resolve_rate_from_lookup(rate_lookup, banker, currency, deal_date)
             total_usd += (amount / rate) if rate else 0.0
         conn.close()
         return total_usd
 
     def _compute_filtered_usd_total(self, banker=None, date_from=None, date_to=None):
         conn = self.db()
-        cur = conn.cursor()
-        rate_cache = {}
-
-        query = "SELECT deal_date, banker_name, target_currency, foreign_amount FROM transactions WHERE 1=1"
-        params = []
-
-        if banker:
-            query += " AND LOWER(banker_name)=LOWER(?)"
-            params.append(banker)
-        if date_from:
-            query += " AND deal_date >= ?"
-            params.append(date_from)
-        if date_to:
-            query += " AND deal_date <= ?"
-            params.append(date_to)
-
-        cur.execute(query, params)
+        transactions = self._fetch_transaction_rows(
+            conn,
+            banker=banker,
+            date_from=date_from,
+            date_to=date_to,
+            include_banker=True,
+        )
+        rate_lookup = self._load_rate_lookup(
+            conn,
+            bankers={banker_name for _, banker_name, _, _ in transactions},
+            currencies={currency for _, _, currency, _ in transactions},
+        )
 
         total_usd = 0.0
-        for deal_date, banker_name, currency, amount in cur.fetchall():
-            rate = self._get_rate_cached(
-                conn, rate_cache, banker_name, currency, deal_date
+        for deal_date, banker_name, currency, amount in transactions:
+            rate = self._resolve_rate_from_lookup(
+                rate_lookup, banker_name, currency, deal_date
             )
             total_usd += (amount / rate) if rate else 0.0
         conn.close()
