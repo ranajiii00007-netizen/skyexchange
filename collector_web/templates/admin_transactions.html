@@ -9,8 +9,8 @@
     <input type="hidden" id="tx-id" name="id" value="">
     
     <label>
-      Customer *
-      <select id="tx-customer" name="customer_name" required>
+      Customer
+      <select id="tx-customer" name="customer_name">
         <option value="">Select Customer</option>
         {% for c in dropdowns.customers %}
           <option value="{{ c.name }}">{{ c.name }}</option>
@@ -19,8 +19,8 @@
     </label>
 
     <label>
-      Target Currency *
-      <select id="tx-currency" name="target_currency" required onchange="onCurrencyChange()">
+      Target Currency
+      <select id="tx-currency" name="target_currency" onchange="onCurrencyChange()">
         <option value="">Select Currency</option>
         {% for cur in dropdowns.currencies %}
           <option value="{{ cur.code }}">{{ cur.code }}</option>
@@ -29,23 +29,23 @@
     </label>
 
     <label>
-      Exchange Rate *
-      <input type="number" step="0.000001" id="tx-rate" name="exchange_rate" required placeholder="Rate (e.g. 0.85)" oninput="calculateExpected()">
+      Exchange Rate
+      <input type="number" step="0.000001" id="tx-rate" name="exchange_rate" placeholder="Rate (e.g. 0.85)" oninput="calculateExpected()">
     </label>
 
     <label>
-      Foreign Amount *
-      <input type="number" step="0.01" id="tx-foreign-amount" name="foreign_amount" required placeholder="Foreign Amount" oninput="calculateExpected()">
+      Foreign Amount
+      <input type="number" step="0.01" id="tx-foreign-amount" name="foreign_amount" placeholder="Foreign Amount" oninput="calculateExpected()">
     </label>
 
     <label>
-      Expected EUR *
-      <input type="number" step="0.01" id="tx-eur-expected" name="eur_expected" required placeholder="EUR Expected" oninput="onExpectedChange()">
+      Expected EUR
+      <input type="number" step="0.01" id="tx-eur-expected" name="eur_expected" placeholder="EUR Expected" oninput="onExpectedChange()">
     </label>
 
     <label>
-      Received EUR *
-      <input type="number" step="0.01" id="tx-eur-received" name="eur_received" value="0.00" required placeholder="EUR Received">
+      Received EUR
+      <input type="number" step="0.01" id="tx-eur-received" name="eur_received" value="0.00" placeholder="EUR Received">
     </label>
 
     <label>
@@ -69,8 +69,8 @@
     </label>
 
     <label>
-      Deal Date *
-      <input type="date" id="tx-date" name="deal_date" required value="{{ today }}">
+      Deal Date
+      <input type="date" id="tx-date" name="deal_date" value="{{ today }}">
     </label>
 
     <label>

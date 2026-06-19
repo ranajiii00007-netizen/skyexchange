@@ -91,6 +91,16 @@ def money(value):
     return f"{float(value or 0):,.2f}"
 
 
+def safe_float(val, default=0.0):
+    try:
+        val_clean = str(val or "").strip()
+        if not val_clean:
+            return default
+        return float(val_clean)
+    except ValueError:
+        return default
+
+
 app.jinja_env.filters["money"] = money
 
 
@@ -1031,10 +1041,10 @@ def admin_transactions_save():
     tx_id = request.form.get("id", "").strip()
     customer_name = request.form.get("customer_name", "").strip()
     target_currency = request.form.get("target_currency", "").strip()
-    exchange_rate = float(request.form.get("exchange_rate", "0"))
-    foreign_amount = float(request.form.get("foreign_amount", "0"))
-    eur_expected = float(request.form.get("eur_expected", "0"))
-    eur_received = float(request.form.get("eur_received", "0"))
+    exchange_rate = safe_float(request.form.get("exchange_rate"))
+    foreign_amount = safe_float(request.form.get("foreign_amount"))
+    eur_expected = safe_float(request.form.get("eur_expected"))
+    eur_received = safe_float(request.form.get("eur_received"))
     
     collector_name = request.form.get("collector_name", "").strip() or None
     banker_name = request.form.get("banker_name", "").strip() or None
@@ -1044,14 +1054,39 @@ def admin_transactions_save():
     picked_by = request.form.get("picked_by", "").strip() or None
     notes = request.form.get("notes", "").strip() or None
     
-    pending_eur = eur_expected - eur_received
-    status = "CLOSED" if pending_eur == 0 else "OPEN"
-    if status == "CLOSED" and not received_date:
-        received_date = str(date.today())
+    if not customer_name:
+        flash("Customer name is required.", "error")
+        return redirect(url_for("admin_transactions"))
+        
+    if not target_currency:
+        flash("Target currency is required.", "error")
+        return redirect(url_for("admin_transactions"))
         
     conn = db()
     cur = conn.cursor()
     try:
+        # Default exchange rate if not specified
+        if exchange_rate <= 0:
+            cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? AND rate_date=?", (target_currency, str(date.today())))
+            row = cur.fetchone()
+            if row:
+                exchange_rate = float(row[0])
+            else:
+                cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? ORDER BY rate_date DESC, id DESC LIMIT 1", (target_currency,))
+                row = cur.fetchone()
+                exchange_rate = float(row[0]) if row else 1.0
+
+        # Calculate values automatically if left blank
+        if eur_expected <= 0 and foreign_amount > 0:
+            eur_expected = foreign_amount / exchange_rate
+        elif foreign_amount <= 0 and eur_expected > 0:
+            foreign_amount = eur_expected * exchange_rate
+
+        pending_eur = max(0.0, eur_expected - eur_received)
+        status = "CLOSED" if pending_eur == 0 else "OPEN"
+        if status == "CLOSED" and not received_date:
+            received_date = str(date.today())
+
         if tx_id:
             cur.execute(
                 """
@@ -1084,7 +1119,7 @@ def admin_transactions_save():
         database.bump_app_revision()
     except Exception as exc:
         conn.rollback()
-        flash(f"Error creating transaction deal: {exc}", "error")
+        flash(f"Error saving transaction deal: {exc}", "error")
     finally:
         conn.close()
         

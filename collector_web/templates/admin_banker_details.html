@@ -50,11 +50,11 @@
     <form action="{{ url_for('admin_banker_details_pay', banker_name=banker_name) }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
       <label>
         Payment Date
-        <input type="date" name="payment_date" required value="{{ today }}">
+        <input type="date" name="payment_date" value="{{ today }}">
       </label>
       <label>
-        Paid Amount (USD) *
-        <input type="number" step="0.01" min="0.01" name="paid_usd" required placeholder="Amount in USD">
+        Paid Amount (USD)
+        <input type="number" step="0.01" min="0.01" name="paid_usd" placeholder="Amount in USD">
       </label>
       <div class="grid-buttons">
         <button type="submit" class="btn btn-success">Record Payment</button>

@@ -19,11 +19,11 @@
         <form action="{{ url_for('admin_currencies_add') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
           <label>
             Country Name
-            <input type="text" name="name" required placeholder="e.g. United Kingdom">
+            <input type="text" name="name" placeholder="e.g. United Kingdom">
           </label>
           <label>
-            Currency Code *
-            <input type="text" name="code" required placeholder="e.g. GBP">
+            Currency Code
+            <input type="text" name="code" placeholder="e.g. GBP">
           </label>
           <div class="grid-buttons">
             <button type="submit" class="btn btn-success">Add Currency</button>
@@ -37,7 +37,7 @@
         <form action="{{ url_for('admin_customer_rates_save') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
           <label>
             Select Currency
-            <select name="currency_code" required>
+            <select name="currency_code">
               <option value="">Choose currency...</option>
               {% for cur in currencies %}
                 <option value="{{ cur.code }}">{{ cur.code }} — {{ cur.name }}</option>
@@ -46,11 +46,11 @@
           </label>
           <label>
             Rate Date
-            <input type="date" name="rate_date" required value="{{ today }}">
+            <input type="date" name="rate_date" value="{{ today }}">
           </label>
           <label>
-            Exchange Rate *
-            <input type="number" step="0.000001" name="rate" required placeholder="Rate in EUR base (e.g. 0.85)">
+            Exchange Rate
+            <input type="number" step="0.000001" name="rate" placeholder="Rate in EUR base (e.g. 0.85)">
           </label>
           <div class="grid-buttons">
             <button type="submit" class="btn btn-success">Set Rate</button>
@@ -109,7 +109,7 @@
       <form action="{{ url_for('admin_banker_rates_save') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
         <label>
           Select Banker
-          <select name="banker_name" required>
+          <select name="banker_name">
             <option value="">Choose banker...</option>
             {% for b in bankers %}
               <option value="{{ b.name }}">{{ b.name }}</option>
@@ -118,7 +118,7 @@
         </label>
         <label>
           Select Currency
-          <select name="currency_code" required>
+          <select name="currency_code">
             <option value="">Choose currency...</option>
             {% for cur in currencies %}
               <option value="{{ cur.code }}">{{ cur.code }} — {{ cur.name }}</option>
@@ -127,11 +127,11 @@
         </label>
         <label>
           Rate Date
-          <input type="date" name="rate_date" required value="{{ today }}">
+          <input type="date" name="rate_date" value="{{ today }}">
         </label>
         <label>
-          Banker Rate *
-          <input type="number" step="0.000001" name="rate" required placeholder="Rate in USD base (e.g. 1.25)">
+          Banker Rate
+          <input type="number" step="0.000001" name="rate" placeholder="Rate in USD base (e.g. 1.25)">
         </label>
         <div class="grid-buttons">
           <button type="submit" class="btn btn-success">Set Banker Rate</button>
