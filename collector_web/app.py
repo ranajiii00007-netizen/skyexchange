@@ -422,6 +422,12 @@ def admin_collectors_delete(collector_id):
 
 @app.route("/admin")
 @admin_required
+def admin_root():
+    return redirect(url_for("admin_dashboard"))
+
+
+@app.route("/admin/collectors")
+@admin_required
 def admin_users():
     conn = db()
     cur = conn.cursor()
