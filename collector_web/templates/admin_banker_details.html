@@ -1,0 +1,161 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Banker Ledger: {{ banker_name }}{% endblock %}
+{% block content %}
+
+<!-- Action Header -->
+<div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+  <a href="{{ url_for('admin_bankers') }}" class="btn btn-secondary">⬅️ Back to Bankers List</a>
+</div>
+
+<!-- Quick Statistics (Overall Ledger Status) -->
+<div class="stats-grid">
+  <div class="stat-box">
+    <span>Overall Expected (USD)</span>
+    <h3>${{ ledger.overall_total_usd | money }}</h3>
+  </div>
+  <div class="stat-box success">
+    <span>Overall Paid (USD)</span>
+    <h3>${{ ledger.overall_paid_usd | money }}</h3>
+  </div>
+  <div class="stat-box danger">
+    <span>Overall Remaining Balance</span>
+    <h3>${{ ledger.overall_remaining_usd | money }}</h3>
+  </div>
+</div>
+
+<!-- Date Filters & Add Payment -->
+<div class="stats-grid" style="grid-template-columns: 1.5fr 1fr;">
+  <!-- Date Search Filters -->
+  <div class="card" style="margin-bottom: 0;">
+    <h3>🔍 Filter Ledger Transactions</h3>
+    <form method="GET" class="grid-form">
+      <label>
+        From Date
+        <input type="date" name="date_from" value="{{ filters.date_from }}">
+      </label>
+      <label>
+        To Date
+        <input type="date" name="date_to" value="{{ filters.date_to }}">
+      </label>
+      <div class="grid-buttons" style="margin-top: 0;">
+        <button type="submit" class="btn">Filter</button>
+        <a href="{{ url_for('admin_banker_details', banker_name=banker_name) }}" class="btn btn-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Record Payment Form -->
+  <div class="card" style="margin-bottom: 0;">
+    <h3>💸 Record Payment to Banker</h3>
+    <form action="{{ url_for('admin_banker_details_pay', banker_name=banker_name) }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
+      <label>
+        Payment Date
+        <input type="date" name="payment_date" required value="{{ today }}">
+      </label>
+      <label>
+        Paid Amount (USD) *
+        <input type="number" step="0.01" min="0.01" name="paid_usd" required placeholder="Amount in USD">
+      </label>
+      <div class="grid-buttons">
+        <button type="submit" class="btn btn-success">Record Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<br>
+
+<div class="stats-grid" style="grid-template-columns: 1.5fr 1fr; align-items: start;">
+  <!-- Ledger Transactions list -->
+  <div class="card">
+    <h3>📖 Ledger Transactions Summary (Filtered)</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Currency</th>
+            <th>Foreign Amount</th>
+            <th>Banker Rate</th>
+            <th>USD Equivalent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if ledger.transactions %}
+            {% for tx in ledger.transactions %}
+              <tr>
+                <td>{{ tx.date }}</td>
+                <td><span class="badge badge-open">{{ tx.currency }}</span></td>
+                <td>{{ tx.amount | money }}</td>
+                <td>{{ tx.rate if tx.rate else 'N/A' }}</td>
+                <td><strong>${{ tx.usd | money }}</strong></td>
+              </tr>
+            {% endfor %}
+            <tr style="background: var(--bg-secondary); font-weight: bold;">
+              <td colspan="4" style="text-align: right;">Total USD Equivalent:</td>
+              <td>${{ ledger.filtered_total_usd | money }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--muted);">No transactions found in this date range.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Currency Totals Box -->
+    <div class="card" style="background: var(--bg-secondary); margin-bottom: 0; box-shadow: none;">
+      <h4 style="margin-bottom: 8px; font-weight: 700; font-size: 14px; text-transform: uppercase; color: var(--muted);">Currency Summary:</h4>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+        {% for curr, tot in ledger.currency_totals %}
+          <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid var(--line);">
+            <strong style="color: var(--brand);">{{ curr }}</strong>: {{ tot.amount | money }}
+            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">USD: ${{ tot.usd | money }}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Payments History -->
+  <div class="card">
+    <h3>📜 Payments History</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Paid USD</th>
+            <th>Total USD Snapshot</th>
+            <th>Remaining Snapshot</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if ledger.payments %}
+            {% for p in ledger.payments %}
+              <tr>
+                <td>{{ p.payment_date }}</td>
+                <td class="success"><strong>${{ p.paid_usd | money }}</strong></td>
+                <td>${{ p.total_usd_snapshot | money }}</td>
+                <td class="danger">${{ p.remaining_usd_snapshot | money }}</td>
+                <td style="text-align: right;">
+                  <form action="{{ url_for('admin_banker_details_delete_pay', banker_name=banker_name, payment_id=p.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this payment record?');">
+                    <button type="submit" class="btn btn-danger" style="padding: 4px 6px; font-size: 11px;">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--muted);">No payments recorded yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

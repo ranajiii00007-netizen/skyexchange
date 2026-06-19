@@ -1,77 +1,196 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
+{% block page_title %}Collectors & Logins{% endblock %}
+{% block content %}
 
-{% block body %}
-<header class="topbar">
-  <div>
-    <p class="eyebrow">SKY EXCHANGE</p>
-    <h1>Collector Access</h1>
-  </div>
-  <a class="logout" href="{{ url_for('logout') }}">Logout</a>
-</header>
-
-<main class="dashboard">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="alert {{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-
-  <section class="admin-grid">
-    <form method="post" action="{{ url_for('admin_create_user') }}" class="admin-panel">
-      <h2>Create Collector Account</h2>
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr;">
+  <!-- Section 1: Manage Collector Directory -->
+  <div class="card">
+    <h3 id="collector-title">➕ Add Collector</h3>
+    <form action="{{ url_for('admin_collectors_save') }}" method="POST" class="grid-form">
+      <input type="hidden" id="collector-id" name="id" value="">
       <label>
-        Collector
+        Collector Name *
+        <input type="text" id="collector-name" name="name" required placeholder="Enter collector name">
+      </label>
+      <label>
+        Phone Number
+        <input type="text" id="collector-phone" name="phone" placeholder="Phone">
+      </label>
+      <label>
+        Area/Region
+        <input type="text" id="collector-area" name="area" placeholder="Area">
+      </label>
+      <label>
+        Status
+        <select id="collector-status" name="status">
+          <option value="1">Active</option>
+          <option value="0">Inactive</option>
+        </select>
+      </label>
+      <div class="grid-buttons">
+        <button type="submit" class="btn btn-success">Save Collector</button>
+        <button type="button" class="btn btn-secondary" onclick="clearCollectorForm()">Clear</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Section 2: Create Collector Web Credentials -->
+  <div class="card">
+    <h3>🔑 Create Collector Login Credentials</h3>
+    <form method="POST" action="{{ url_for('admin_create_user') }}" class="grid-form">
+      <label>
+        Select Collector
         <select name="collector_name" required>
-          <option value="">Select collector</option>
+          <option value="">Choose collector...</option>
           {% for collector in collectors %}
-            <option value="{{ collector }}">{{ collector }}</option>
+            {% if collector.status == 1 %}
+              <option value="{{ collector.name }}">{{ collector.name }}</option>
+            {% endif %}
           {% endfor %}
         </select>
       </label>
       <label>
         Username
-        <input name="username" autocomplete="off" required>
+        <input name="username" autocomplete="off" required placeholder="Pick a username">
       </label>
       <label>
         Password
-        <input name="password" type="password" autocomplete="new-password" required>
+        <input name="password" type="password" autocomplete="new-password" required placeholder="Set password">
       </label>
-      <button type="submit">Create Account</button>
+      <div class="grid-buttons">
+        <button type="submit" class="btn btn-success">Create Login</button>
+      </div>
     </form>
+  </div>
+</div>
 
-    <section class="admin-panel">
-      <h2>Current Access</h2>
-      {% if users %}
-        <div class="access-list">
-          {% for user in users %}
-            <article class="access-row">
-              <div>
-                <strong>{{ user[2] }}</strong>
-                <span>{{ user[1] }}</span>
-                <small>{{ "Enabled" if user[3] else "Disabled" }} · {{ user[4] or "" }}</small>
-              </div>
-              <form method="post" action="{{ url_for('admin_set_user_status', user_id=user[0]) }}">
-                {% if user[3] %}
-                  <input type="hidden" name="status" value="0">
-                  <button class="secondary danger" type="submit">Disable</button>
-                {% else %}
-                  <input type="hidden" name="status" value="1">
-                  <button class="secondary" type="submit">Enable</button>
-                {% endif %}
-              </form>
-              <form method="post" action="{{ url_for('admin_reset_user_password', user_id=user[0]) }}" class="reset-form">
-                <input name="password" type="password" placeholder="New password" required>
-                <button class="secondary" type="submit">Reset</button>
-              </form>
-            </article>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="empty">No collector accounts yet.</p>
-      {% endif %}
-    </section>
-  </section>
-</main>
+<div class="stats-grid" style="grid-template-columns: 1.2fr 1fr;">
+  <!-- Collector Directory List -->
+  <div class="card">
+    <h3>🛵 Collector Profiles</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Area</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if collectors %}
+            {% for c in collectors %}
+              <tr>
+                <td><strong>{{ c.name }}</strong></td>
+                <td>{{ c.phone or '' }}</td>
+                <td>{{ c.area or '' }}</td>
+                <td>
+                  {% if c.status == 1 %}
+                    <span class="badge badge-closed">Active</span>
+                  {% else %}
+                    <span class="badge badge-pending">Inactive</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right;">
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editCollector({{ {
+                    'id': c.id,
+                    'name': c.name,
+                    'phone': c.phone or '',
+                    'area': c.area or '',
+                    'status': c.status
+                  } | tojson }})">Edit</button>
+                  <form action="{{ url_for('admin_collectors_delete', collector_id=c.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this collector profile?');">
+                    <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--muted);">No collector profiles created.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Web Login Accounts -->
+  <div class="card">
+    <h3>🔑 Active Web Logins</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Collector / Username</th>
+            <th>Status</th>
+            <th style="text-align: right;">Credentials Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if users %}
+            {% for u in users %}
+              <tr>
+                <td>
+                  <strong>{{ u[2] }}</strong>
+                  <div style="font-size: 12px; color: var(--muted);">Username: {{ u[1] }}</div>
+                </td>
+                <td>
+                  <span class="badge {% if u[3] %}badge-closed{% else %}badge-pending{% endif %}">
+                    {{ 'Enabled' if u[3] else 'Disabled' }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                    <form method="POST" action="{{ url_for('admin_set_user_status', user_id=u[0]) }}">
+                      {% if u[3] %}
+                        <input type="hidden" name="status" value="0">
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Disable</button>
+                      {% else %}
+                        <input type="hidden" name="status" value="1">
+                        <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Enable</button>
+                      {% endif %}
+                    </form>
+                    
+                    <form method="POST" action="{{ url_for('admin_reset_user_password', user_id=u[0]) }}" class="reset-form" style="display: flex; gap: 4px; margin-top: 4px;">
+                      <input name="password" type="password" placeholder="New pass" required style="padding: 4px 8px; font-size: 11px; width: 90px; height: 26px;">
+                      <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; height: 26px;" type="submit">Reset</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--muted);">No login accounts created yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function editCollector(c) {
+  document.getElementById('collector-title').innerText = '✏️ Edit Collector Profile: ' + c.name;
+  document.getElementById('collector-id').value = c.id;
+  document.getElementById('collector-name').value = c.name;
+  document.getElementById('collector-phone').value = c.phone;
+  document.getElementById('collector-area').value = c.area;
+  document.getElementById('collector-status').value = c.status;
+}
+
+function clearCollectorForm() {
+  document.getElementById('collector-title').innerText = '➕ Add Collector';
+  document.getElementById('collector-id').value = '';
+  document.getElementById('collector-name').value = '';
+  document.getElementById('collector-phone').value = '';
+  document.getElementById('collector-area').value = '';
+  document.getElementById('collector-status').value = '1';
+}
+</script>
+
 {% endblock %}

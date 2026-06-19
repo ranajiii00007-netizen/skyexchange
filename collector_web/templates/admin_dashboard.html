@@ -1,0 +1,85 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+<!-- Stats grid -->
+<div class="stats-grid">
+  <div class="stat-box">
+    <span>Total Transactions</span>
+    <h3>{{ stats.total_txs }}</h3>
+  </div>
+  <div class="stat-box warning">
+    <span>Open Transactions</span>
+    <h3>{{ stats.open_txs }}</h3>
+  </div>
+  <div class="stat-box success">
+    <span>Total Received EUR</span>
+    <h3>€{{ stats.total_received | money }}</h3>
+  </div>
+  <div class="stat-box danger">
+    <span>Total Pending EUR</span>
+    <h3>€{{ stats.total_pending | money }}</h3>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-box">
+    <span>Total Customers</span>
+    <h3>{{ stats.total_customers }}</h3>
+  </div>
+  <div class="stat-box">
+    <span>Total Collectors</span>
+    <h3>{{ stats.total_collectors }}</h3>
+  </div>
+  <div class="stat-box">
+    <span>Total Bankers</span>
+    <h3>{{ stats.total_bankers }}</h3>
+  </div>
+</div>
+
+<!-- Recent Deals -->
+<div class="card">
+  <h3>⚡ Recent Deals</h3>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Expected EUR</th>
+          <th>Received EUR</th>
+          <th>Pending EUR</th>
+          <th>Status</th>
+          <th>Collector</th>
+          <th>Banker</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if recent_txs %}
+          {% for tx in recent_txs %}
+            <tr>
+              <td>{{ tx.deal_date }}</td>
+              <td><strong>{{ tx.customer_name }}</strong></td>
+              <td>€{{ tx.eur_expected | money }}</td>
+              <td>€{{ tx.eur_received | money }}</td>
+              <td class="danger">€{{ tx.pending_eur | money }}</td>
+              <td>
+                <span class="badge {% if tx.status == 'OPEN' %}badge-open{% else %}badge-closed{% endif %}">
+                  {{ tx.status }}
+                </span>
+              </td>
+              <td>{{ tx.collector_name or 'N/A' }}</td>
+              <td>{{ tx.banker_name or 'N/A' }}</td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" style="text-align: center; color: var(--muted);">No transactions recorded yet.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

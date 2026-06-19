@@ -1,0 +1,171 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Customers Directory{% endblock %}
+{% block content %}
+
+<!-- Form to Add/Edit Customer -->
+<div class="card">
+  <h3 id="form-title">➕ Add New Customer</h3>
+  <form action="{{ url_for('admin_customers_save') }}" method="POST" class="grid-form">
+    <input type="hidden" id="cust-id" name="id" value="">
+    
+    <label>
+      Customer Name *
+      <input type="text" id="cust-name" name="name" required placeholder="Enter customer full name">
+    </label>
+    
+    <label>
+      Phone 1
+      <input type="text" id="cust-phone" name="phone" placeholder="Phone 1">
+    </label>
+    
+    <label>
+      Phone 2
+      <input type="text" id="cust-phone2" name="phone2" placeholder="Phone 2">
+    </label>
+    
+    <label>
+      Phone 3
+      <input type="text" id="cust-phone3" name="phone3" placeholder="Phone 3">
+    </label>
+    
+    <label>
+      Address
+      <input type="text" id="cust-address" name="address" placeholder="Address">
+    </label>
+    
+    <label>
+      Reference
+      <input type="text" id="cust-reference" name="reference" placeholder="Reference person">
+    </label>
+    
+    <label>
+      Country
+      <input type="text" id="cust-country" name="country" placeholder="Country code or name">
+    </label>
+
+    <label>
+      Status
+      <select id="cust-status" name="status">
+        <option value="1">Active</option>
+        <option value="0">Inactive</option>
+      </select>
+    </label>
+
+    <div class="grid-buttons">
+      <button type="submit" class="btn btn-success">Save Customer</button>
+      <button type="button" class="btn btn-secondary" onclick="clearForm()">Clear Form</button>
+    </div>
+  </form>
+</div>
+
+<!-- Search & Filter Card -->
+<div class="card" style="padding: 16px;">
+  <form method="GET" class="grid-form">
+    <label>
+      Search Customers
+      <input type="text" name="search" value="{{ search }}" placeholder="Search by name, reference, phone, or country...">
+    </label>
+    <div class="grid-buttons" style="margin-top: 0;">
+      <button type="submit" class="btn">Search</button>
+      <a href="{{ url_for('admin_customers') }}" class="btn btn-secondary">Clear</a>
+    </div>
+  </form>
+</div>
+
+<!-- Table list -->
+<div class="card">
+  <h3>👥 Customer List</h3>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Phones</th>
+          <th>Address</th>
+          <th>Reference</th>
+          <th>Country</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if customers %}
+          {% for cust in customers %}
+            <tr>
+              <td><strong>{{ cust.name }}</strong></td>
+              <td>
+                {% if cust.phone %}<span class="badge badge-open">{{ cust.phone }}</span>{% endif %}
+                {% if cust.phone2 %}<span class="badge badge-open">{{ cust.phone2 }}</span>{% endif %}
+                {% if cust.phone3 %}<span class="badge badge-open">{{ cust.phone3 }}</span>{% endif %}
+              </td>
+              <td>{{ cust.address or '' }}</td>
+              <td>{{ cust.reference or '' }}</td>
+              <td>{{ cust.country or '' }}</td>
+              <td>
+                {% if cust.status == 1 %}
+                  <span class="badge badge-closed">Active</span>
+                {% else %}
+                  <span class="badge badge-pending">Inactive</span>
+                {% endif %}
+              </td>
+              <td>{{ cust.created_at or '' }}</td>
+              <td style="text-align: right;">
+                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editCustomer({{ {
+                  'id': cust.id,
+                  'name': cust.name,
+                  'phone': cust.phone or '',
+                  'phone2': cust.phone2 or '',
+                  'phone3': cust.phone3 or '',
+                  'address': cust.address or '',
+                  'reference': cust.reference or '',
+                  'country': cust.country or '',
+                  'status': cust.status
+                } | tojson }})">Edit</button>
+                
+                <form action="{{ url_for('admin_customers_delete', customer_id=cust.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this customer?');">
+                  <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="8" style="text-align: center; color: var(--muted);">No customers found.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function editCustomer(cust) {
+  document.getElementById('form-title').innerText = '✏️ Edit Customer: ' + cust.name;
+  document.getElementById('cust-id').value = cust.id;
+  document.getElementById('cust-name').value = cust.name;
+  document.getElementById('cust-phone').value = cust.phone;
+  document.getElementById('cust-phone2').value = cust.phone2;
+  document.getElementById('cust-phone3').value = cust.phone3;
+  document.getElementById('cust-address').value = cust.address;
+  document.getElementById('cust-reference').value = cust.reference;
+  document.getElementById('cust-country').value = cust.country;
+  document.getElementById('cust-status').value = cust.status;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearForm() {
+  document.getElementById('form-title').innerText = '➕ Add New Customer';
+  document.getElementById('cust-id').value = '';
+  document.getElementById('cust-name').value = '';
+  document.getElementById('cust-phone').value = '';
+  document.getElementById('cust-phone2').value = '';
+  document.getElementById('cust-phone3').value = '';
+  document.getElementById('cust-address').value = '';
+  document.getElementById('cust-reference').value = '';
+  document.getElementById('cust-country').value = '';
+  document.getElementById('cust-status').value = '1';
+}
+</script>
+
+{% endblock %}

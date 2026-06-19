@@ -1,0 +1,312 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Transactions Ledger{% endblock %}
+{% block content %}
+
+<!-- Form to Add/Edit Transaction -->
+<div class="card">
+  <h3 id="form-title">➕ Add New Transaction</h3>
+  <form action="{{ url_for('admin_transactions_save') }}" method="POST" class="grid-form">
+    <input type="hidden" id="tx-id" name="id" value="">
+    
+    <label>
+      Customer *
+      <select id="tx-customer" name="customer_name" required>
+        <option value="">Select Customer</option>
+        {% for c in dropdowns.customers %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Target Currency *
+      <select id="tx-currency" name="target_currency" required onchange="onCurrencyChange()">
+        <option value="">Select Currency</option>
+        {% for cur in dropdowns.currencies %}
+          <option value="{{ cur.code }}">{{ cur.code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Exchange Rate *
+      <input type="number" step="0.000001" id="tx-rate" name="exchange_rate" required placeholder="Rate (e.g. 0.85)" oninput="calculateExpected()">
+    </label>
+
+    <label>
+      Foreign Amount *
+      <input type="number" step="0.01" id="tx-foreign-amount" name="foreign_amount" required placeholder="Foreign Amount" oninput="calculateExpected()">
+    </label>
+
+    <label>
+      Expected EUR *
+      <input type="number" step="0.01" id="tx-eur-expected" name="eur_expected" required placeholder="EUR Expected" oninput="onExpectedChange()">
+    </label>
+
+    <label>
+      Received EUR *
+      <input type="number" step="0.01" id="tx-eur-received" name="eur_received" value="0.00" required placeholder="EUR Received">
+    </label>
+
+    <label>
+      Collector
+      <select id="tx-collector" name="collector_name">
+        <option value="">Select Collector</option>
+        {% for col in dropdowns.collectors %}
+          <option value="{{ col.name }}">{{ col.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Banker
+      <select id="tx-banker" name="banker_name">
+        <option value="">Select Banker</option>
+        {% for b in dropdowns.bankers %}
+          <option value="{{ b.name }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Deal Date *
+      <input type="date" id="tx-date" name="deal_date" required value="{{ today }}">
+    </label>
+
+    <label>
+      Received Date
+      <input type="date" id="tx-received-date" name="received_date" value="">
+    </label>
+
+    <label>
+      Transaction Type
+      <select id="tx-type" name="transaction_type">
+        <option value="REGULAR">REGULAR</option>
+        <option value="PERSONAL">PERSONAL</option>
+      </select>
+    </label>
+
+    <label>
+      Picked By
+      <input type="text" id="tx-picked-by" name="picked_by" placeholder="e.g. Office Name">
+    </label>
+
+    <label style="grid-column: span 2;">
+      Notes
+      <textarea id="tx-notes" name="notes" rows="2" placeholder="Deal notes..."></textarea>
+    </label>
+
+    <div class="grid-buttons" style="grid-column: span 2;">
+      <button type="submit" class="btn btn-success">Save Deal</button>
+      <button type="button" class="btn btn-secondary" onclick="clearTxForm()">Clear Form</button>
+    </div>
+  </form>
+</div>
+
+<!-- Search & Filters -->
+<div class="card">
+  <h3>🔍 Search & Filter Ledger</h3>
+  <form method="GET" class="grid-form">
+    <label>
+      Customer Name
+      <input type="text" name="customer" value="{{ filters.customer }}" placeholder="Customer Name">
+    </label>
+    
+    <label>
+      Collector
+      <select name="collector">
+        <option value="">All Collectors</option>
+        {% for c in dropdowns.collectors %}
+          <option value="{{ c.name }}" {% if filters.collector == c.name %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Banker
+      <select name="banker">
+        <option value="">All Bankers</option>
+        {% for b in dropdowns.bankers %}
+          <option value="{{ b.name }}" {% if filters.banker == b.name %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Status
+      <select name="status">
+        <option value="ALL">All Statuses</option>
+        <option value="OPEN" {% if filters.status == 'OPEN' %}selected{% endif %}>OPEN</option>
+        <option value="CLOSED" {% if filters.status == 'CLOSED' %}selected{% endif %}>CLOSED</option>
+      </select>
+    </label>
+
+    <label>
+      From Date
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+
+    <label>
+      To Date
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+
+    <div class="grid-buttons" style="margin-top: 0;">
+      <button type="submit" class="btn">Filter</button>
+      <a href="{{ url_for('admin_transactions') }}" class="btn btn-secondary">Clear</a>
+    </div>
+  </form>
+</div>
+
+<!-- Table list -->
+<div class="card">
+  <h3>💸 Ledger List</h3>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Expected EUR</th>
+          <th>Received EUR</th>
+          <th>Pending EUR</th>
+          <th>Sent Amount</th>
+          <th>Collector</th>
+          <th>Banker</th>
+          <th>Status</th>
+          <th style="text-align: right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if transactions %}
+          {% for tx in transactions %}
+            <tr style="background: {% if tx.transaction_type == 'PERSONAL' %}#eff6ff{% endif %};">
+              <td>{{ tx.deal_date }}</td>
+              <td>
+                <strong>{{ tx.customer_name }}</strong>
+                {% if tx.transaction_type == 'PERSONAL' %}
+                  <span class="badge badge-open" style="font-size: 9px; padding: 2px 4px; background: #bfdbfe; color: #1e3a8a;">PERSONAL</span>
+                {% endif %}
+                {% if tx.notes %}
+                  <div style="font-size: 11px; color: var(--muted); font-weight: normal;">Notes: {{ tx.notes }}</div>
+                {% endif %}
+              </td>
+              <td>€{{ tx.eur_expected | money }}</td>
+              <td>€{{ tx.eur_received | money }}</td>
+              <td class="danger">€{{ tx.pending_eur | money }}</td>
+              <td><strong>{{ tx.foreign_amount | money }} {{ tx.target_currency }}</strong> <br><small style="color: var(--muted); font-size:10px;">Rate: {{ tx.exchange_rate }}</small></td>
+              <td>{{ tx.collector_name or 'N/A' }}</td>
+              <td>{{ tx.banker_name or 'N/A' }}</td>
+              <td>
+                <span class="badge {% if tx.status == 'OPEN' %}badge-open{% else %}badge-closed{% endif %}">
+                  {{ tx.status }}
+                </span>
+                {% if tx.received_date %}
+                  <div style="font-size: 10px; color: var(--muted);">on {{ tx.received_date }}</div>
+                {% endif %}
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editTx({{ {
+                    'id': tx.id,
+                    'customer_name': tx.customer_name,
+                    'target_currency': tx.target_currency,
+                    'exchange_rate': tx.exchange_rate,
+                    'foreign_amount': tx.foreign_amount,
+                    'eur_expected': tx.eur_expected,
+                    'eur_received': tx.eur_received,
+                    'collector_name': tx.collector_name or '',
+                    'banker_name': tx.banker_name or '',
+                    'deal_date': tx.deal_date,
+                    'received_date': tx.received_date or '',
+                    'transaction_type': tx.transaction_type,
+                    'picked_by': tx.picked_by or '',
+                    'notes': tx.notes or ''
+                  } | tojson }})">Edit</button>
+                  
+                  <form action="{{ url_for('admin_transactions_delete', transaction_id=tx.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this deal?');">
+                    <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="10" style="text-align: center; color: var(--muted);">No deals recorded.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Embedded rates lookup object for JavaScript -->
+<script>
+const activeRates = {{ current_rates | tojson }};
+
+function onCurrencyChange() {
+  const currencyCode = document.getElementById('tx-currency').value;
+  if (activeRates[currencyCode]) {
+    document.getElementById('tx-rate').value = activeRates[currencyCode];
+  } else {
+    document.getElementById('tx-rate').value = '';
+  }
+  calculateExpected();
+}
+
+function calculateExpected() {
+  const localVal = parseFloat(document.getElementById('tx-foreign-amount').value);
+  const rateVal = parseFloat(document.getElementById('tx-rate').value);
+  
+  if (!isNaN(localVal) && !isNaN(rateVal) && rateVal > 0) {
+    const expected = localVal / rateVal;
+    document.getElementById('tx-eur-expected').value = expected.toFixed(2);
+  } else {
+    document.getElementById('tx-eur-expected').value = '';
+  }
+}
+
+function onExpectedChange() {
+  // If they manually edit the Expected EUR field, we don't overwrite it unless they modify amount/rate again.
+}
+
+function editTx(tx) {
+  document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + tx.customer_name + ')';
+  document.getElementById('tx-id').value = tx.id;
+  document.getElementById('tx-customer').value = tx.customer_name;
+  document.getElementById('tx-currency').value = tx.target_currency;
+  document.getElementById('tx-rate').value = tx.exchange_rate;
+  document.getElementById('tx-foreign-amount').value = tx.foreign_amount;
+  document.getElementById('tx-eur-expected').value = tx.eur_expected;
+  document.getElementById('tx-eur-received').value = tx.eur_received;
+  document.getElementById('tx-collector').value = tx.collector_name;
+  document.getElementById('tx-banker').value = tx.banker_name;
+  document.getElementById('tx-date').value = tx.deal_date;
+  document.getElementById('tx-received-date').value = tx.received_date;
+  document.getElementById('tx-type').value = tx.transaction_type;
+  document.getElementById('tx-picked-by').value = tx.picked_by;
+  document.getElementById('tx-notes').value = tx.notes;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearTxForm() {
+  document.getElementById('form-title').innerText = '➕ Add New Transaction';
+  document.getElementById('tx-id').value = '';
+  document.getElementById('tx-customer').value = '';
+  document.getElementById('tx-currency').value = '';
+  document.getElementById('tx-rate').value = '';
+  document.getElementById('tx-foreign-amount').value = '';
+  document.getElementById('tx-eur-expected').value = '';
+  document.getElementById('tx-eur-received').value = '0.00';
+  document.getElementById('tx-collector').value = '';
+  document.getElementById('tx-banker').value = '';
+  document.getElementById('tx-date').value = '{{ today }}';
+  document.getElementById('tx-received-date').value = '';
+  document.getElementById('tx-type').value = 'REGULAR';
+  document.getElementById('tx-picked-by').value = '';
+  document.getElementById('tx-notes').value = '';
+}
+</script>
+
+{% endblock %}

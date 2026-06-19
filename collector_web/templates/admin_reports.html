@@ -1,0 +1,269 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Financial Reports{% endblock %}
+{% block content %}
+
+<!-- Filters Card -->
+<div class="card">
+  <h3>🔍 Search Reports & Filter</h3>
+  <form id="report-form" method="GET" class="grid-form" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+    <!-- Keep the active tab code -->
+    <input type="hidden" id="active-report-tab" name="tab" value="{{ active_tab or 'summary' }}">
+    
+    <label>
+      Banker
+      <select name="banker">
+        <option value="">All Bankers</option>
+        {% for b in dropdowns.bankers %}
+          <option value="{{ b.name }}" {% if filters.banker == b.name %}selected{% endif %}>{{ b.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Customer
+      <select name="customer">
+        <option value="">All Customers</option>
+        {% for c in dropdowns.customers %}
+          <option value="{{ c.name }}" {% if filters.customer == c.name %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Collector
+      <select name="collector">
+        <option value="">All Collectors</option>
+        {% for c in dropdowns.collectors %}
+          <option value="{{ c.name }}" {% if filters.collector == c.name %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Currency
+      <select name="currency">
+        <option value="">All Currencies</option>
+        {% for cur in dropdowns.currencies %}
+          <option value="{{ cur.code }}" {% if filters.currency == cur.code %}selected{% endif %}>{{ cur.code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      Status
+      <select name="status">
+        <option value="All" {% if filters.status == 'All' %}selected{% endif %}>All</option>
+        <option value="Open" {% if filters.status == 'Open' %}selected{% endif %}>Open</option>
+        <option value="Closed" {% if filters.status == 'Closed' %}selected{% endif %}>Closed</option>
+        <option value="Pending" {% if filters.status == 'Pending' %}selected{% endif %}>Pending</option>
+        <option value="Received" {% if filters.status == 'Received' %}selected{% endif %}>Received</option>
+        <option value="Expected" {% if filters.status == 'Expected' %}selected{% endif %}>Expected</option>
+        <option value="Partial" {% if filters.status == 'Partial' %}selected{% endif %}>Partial</option>
+      </select>
+    </label>
+
+    <label>
+      From Date
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+
+    <label>
+      To Date
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+
+    <div class="grid-buttons" style="grid-column: span 2; margin-top: 0;">
+      <button type="submit" class="btn">Generate Report</button>
+      <a href="{{ url_for('admin_reports') }}" class="btn btn-secondary">Clear Filters</a>
+      
+      <!-- Exports buttons -->
+      <button type="submit" formaction="{{ url_for('admin_reports_pdf') }}" class="btn btn-warning">📥 Download PDF</button>
+      <button type="submit" formaction="{{ url_for('admin_reports_csv') }}" class="btn btn-success">📊 Download CSV</button>
+    </div>
+  </form>
+</div>
+
+<!-- Tabs Navigation -->
+<div class="tabs-navigation">
+  <a href="#summary-tab" id="tab-link-summary" class="tab-link {% if not active_tab or active_tab == 'summary' %}active{% endif %}" onclick="switchReportsTab('summary', event)">📋 Summary Report</a>
+  <a href="#detailed-tab" id="tab-link-detailed" class="tab-link {% if active_tab == 'detailed' %}active{% endif %}" onclick="switchReportsTab('detailed', event)">🔍 Detailed Ledger</a>
+  <a href="#currency-tab" id="tab-link-currency" class="tab-link {% if active_tab == 'currency' %}active{% endif %}" onclick="switchReportsTab('currency', event)">💱 Currency Report</a>
+</div>
+
+<!-- Summary Stats Panel -->
+<div class="stats-grid">
+  <div class="stat-box">
+    <span>Expected EUR</span>
+    <h3>€{{ summary.expected | money }}</h3>
+  </div>
+  <div class="stat-box success">
+    <span>Received EUR</span>
+    <h3>€{{ summary.received | money }}</h3>
+  </div>
+  <div class="stat-box danger">
+    <span>Pending EUR</span>
+    <h3>€{{ summary.pending | money }}</h3>
+  </div>
+</div>
+
+<!-- TAB 1: Summary Report -->
+<div id="summary-tab" class="tab-content-panel" style="display: {% if not active_tab or active_tab == 'summary' %}block{% else %}none{% endif %};">
+  <div class="card">
+    <h3>📋 General Summary</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Customer</th>
+            <th>Expected EUR</th>
+            <th>Received EUR</th>
+            <th>Pending EUR</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if data %}
+            {% for row in data %}
+              <tr>
+                <td>{{ row.deal_date }}</td>
+                <td>{{ row.transaction_type }}</td>
+                <td><strong>{{ row.customer_name }}</strong></td>
+                <td>€{{ row.eur_expected | money }}</td>
+                <td>€{{ row.eur_received | money }}</td>
+                <td class="danger">€{{ row.pending_eur | money }}</td>
+                <td>
+                  <span class="badge {% if row.status == 'OPEN' %}badge-open{% else %}badge-closed{% endif %}">
+                    {{ row.status }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--muted);">No records found. Adjust your filters.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: Detailed Ledger -->
+<div id="detailed-tab" class="tab-content-panel" style="display: {% if active_tab == 'detailed' %}block{% else %}none{% endif %};">
+  <div class="card">
+    <h3>🔍 Detailed Transaction Profiles</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Collector</th>
+            <th>Banker</th>
+            <th>Currency</th>
+            <th>Foreign Amount</th>
+            <th>Rate</th>
+            <th>Expected EUR</th>
+            <th>Received EUR</th>
+            <th>Pending EUR</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if data %}
+            {% for row in data %}
+              <tr>
+                <td>{{ row.deal_date }}</td>
+                <td><strong>{{ row.customer_name }}</strong></td>
+                <td>{{ row.collector_name or 'N/A' }}</td>
+                <td>{{ row.banker_name or 'N/A' }}</td>
+                <td><span class="badge badge-open">{{ row.target_currency }}</span></td>
+                <td>{{ row.foreign_amount | money }}</td>
+                <td>{{ row.exchange_rate }}</td>
+                <td>€{{ row.eur_expected | money }}</td>
+                <td>€{{ row.eur_received | money }}</td>
+                <td class="danger">€{{ row.pending_eur | money }}</td>
+                <td>
+                  <span class="badge {% if row.status == 'OPEN' %}badge-open{% else %}badge-closed{% endif %}">
+                    {{ row.status }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="11" style="text-align: center; color: var(--muted);">No records found.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: Currency Summary -->
+<div id="currency-tab" class="tab-content-panel" style="display: {% if active_tab == 'currency' %}block{% else %}none{% endif %};">
+  <div class="card">
+    <h3>💱 Currency Volume Summary</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Currency Code</th>
+            <th>Total Deals Count</th>
+            <th>Total Foreign Amount</th>
+            <th>Total Expected EUR</th>
+            <th>Total Received EUR</th>
+            <th>Total Pending EUR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if currency_summary %}
+            {% for cur_code, val in currency_summary.items() %}
+              <tr>
+                <td><strong><span class="badge badge-open" style="font-size: 13px; padding: 4px 10px;">{{ cur_code }}</span></strong></td>
+                <td>{{ val.count }}</td>
+                <td>{{ val.foreign_amount | money }}</td>
+                <td>€{{ val.expected | money }}</td>
+                <td>€{{ val.received | money }}</td>
+                <td class="danger">€{{ val.pending | money }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--muted);">No currency data compiled.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchReportsTab(tabName, event) {
+  event.preventDefault();
+  
+  // Update hidden field value
+  document.getElementById('active-report-tab').value = tabName;
+  
+  // Hide all panels
+  document.querySelectorAll('.tab-content-panel').forEach(function(el) {
+    el.style.display = 'none';
+  });
+  
+  // Deactivate all tab links
+  document.querySelectorAll('.tab-link').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  
+  // Show selected panel
+  document.getElementById(tabName + '-tab').style.display = 'block';
+  document.getElementById('tab-link-' + tabName).classList.add('active');
+}
+</script>
+
+{% endblock %}

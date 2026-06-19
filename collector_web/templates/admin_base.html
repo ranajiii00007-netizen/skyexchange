@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Exchange — Admin Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="layout-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <h1>🌌 SKY EXCHANGE</h1>
+      </div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item {% if active_page == 'dashboard' %}active{% endif %}">
+          <a href="{{ url_for('admin_dashboard') }}">📊 Dashboard</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'transactions' %}active{% endif %}">
+          <a href="{{ url_for('admin_transactions') }}">💸 Transactions</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'customers' %}active{% endif %}">
+          <a href="{{ url_for('admin_customers') }}">👥 Customers</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'collectors' %}active{% endif %}">
+          <a href="{{ url_for('admin_users') }}">🛵 Collectors</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'bankers' %}active{% endif %}">
+          <a href="{{ url_for('admin_bankers') }}">🏦 Bankers</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'rates' %}active{% endif %}">
+          <a href="{{ url_for('admin_rates') }}">📈 Currency Rates</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'reports' %}active{% endif %}">
+          <a href="{{ url_for('admin_reports') }}">📄 Reports</a>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">🛵 Collector view</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger" style="width: 100%;">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+      <!-- Navbar -->
+      <nav class="top-nav">
+        <h2>{% block page_title %}Overview{% endblock %}</h2>
+        <div class="nav-user">
+          <span>👑 System Administrator</span>
+        </div>
+      </nav>
+
+      <!-- Content -->
+      <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert {% if category == 'error' %}error{% endif %}">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+</body>
+</html>
