@@ -308,6 +308,17 @@ def create_tables():
     cur = conn.cursor()
     id_type = _id_column_type()
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS app_state (
+        id INTEGER PRIMARY KEY,
+        revision INTEGER NOT NULL DEFAULT 0
+    )
+    """)
+
+    cur.execute("SELECT revision FROM app_state WHERE id=1")
+    if cur.fetchone() is None:
+        cur.execute("INSERT INTO app_state (id, revision) VALUES (1, 0)")
+
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS banker_payments (
         id {id_type},
@@ -420,6 +431,7 @@ def create_tables():
         foreign_amount REAL NOT NULL,
         status TEXT NOT NULL,
         deal_date TEXT NOT NULL,
+        picked_by TEXT,
         notes TEXT,
         transaction_type TEXT NOT NULL DEFAULT 'REGULAR'
     )
@@ -427,6 +439,9 @@ def create_tables():
 
     if not _column_exists(cur, "transactions", "received_date"):
         cur.execute("ALTER TABLE transactions ADD COLUMN received_date TEXT")
+
+    if not _column_exists(cur, "transactions", "picked_by"):
+        cur.execute("ALTER TABLE transactions ADD COLUMN picked_by TEXT")
 
     if not _column_exists(cur, "transactions", "transaction_type"):
         cur.execute(
@@ -453,13 +468,53 @@ def create_tables():
     """)
 
     cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_banker_currency_rate_lookup
+    ON banker_currency_rates(banker_name, currency_code, rate_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_banker_currency_rate_lookup_lower
+    ON banker_currency_rates(LOWER(banker_name), currency_code, rate_date, id)
+    """)
+
+    cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_transactions_date
     ON transactions(deal_date)
     """)
 
     cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_received_date
+    ON transactions(received_date)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_status
+    ON transactions(status)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_type
+    ON transactions(transaction_type)
+    """)
+
+    cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_transactions_deal_date_id
     ON transactions(deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_received_date_id
+    ON transactions(received_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_status_deal_date_id
+    ON transactions(status, deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_status_received_date_id
+    ON transactions(status, received_date, id)
     """)
 
     cur.execute("""
@@ -473,8 +528,28 @@ def create_tables():
     """)
 
     cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_banker
+    ON transactions(banker_name)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_currency
+    ON transactions(target_currency)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_picked_by
+    ON transactions(picked_by)
+    """)
+
+    cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_transactions_date_type
     ON transactions(deal_date, transaction_type)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_received_date_type
+    ON transactions(received_date, transaction_type)
     """)
 
     cur.execute("""
@@ -482,5 +557,65 @@ def create_tables():
     ON collector_users(collector_name)
     """)
 
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_banker_payments_name_date_id
+    ON banker_payments(banker_name, payment_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_banker_payments_name_date_id_lower
+    ON banker_payments(LOWER(banker_name), payment_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_banker_date_id_lower
+    ON transactions(LOWER(banker_name), deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_banker_date_id
+    ON transactions(banker_name, deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_customer_date_id
+    ON transactions(customer_name, deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_collector_date_id
+    ON transactions(collector_name, deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_currency_date_id
+    ON transactions(target_currency, deal_date, id)
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_transactions_status_date_id
+    ON transactions(status, deal_date, id)
+    """)
+
     conn.commit()
     conn.close()
+
+
+def get_app_revision():
+    conn = connect_db(reuse_postgres=False)
+    cur = conn.cursor()
+    cur.execute("SELECT revision FROM app_state WHERE id=1")
+    row = cur.fetchone()
+    conn.close()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+def bump_app_revision():
+    conn = connect_db(reuse_postgres=False)
+    cur = conn.cursor()
+    cur.execute("UPDATE app_state SET revision = revision + 1 WHERE id=1")
+    if getattr(cur, "rowcount", 0) == 0:
+        cur.execute("INSERT INTO app_state (id, revision) VALUES (1, 1)")
+    conn.commit()
+    conn.close()
+    return get_app_revision()

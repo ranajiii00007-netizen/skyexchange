@@ -26,6 +26,12 @@ class ReportsPage:
         self.current_filters = {}
         self.current_data = []
         self.current_detailed_data = []
+        self._dropdown_cache = {
+            "bankers": [],
+            "customers": [],
+            "collectors": [],
+            "currencies": [],
+        }
         self.refresh()
 
     def _build_tabs(self):
@@ -601,25 +607,37 @@ class ReportsPage:
             cur = conn.cursor()
             cur.execute("SELECT DISTINCT name FROM bankers ORDER BY name")
             bankers = [row[0] for row in cur.fetchall()]
-            for combo in [self.banker_filter, self.det_banker_filter]:
-                combo["values"] = ["All"] + bankers
             cur.execute("SELECT DISTINCT name FROM customers ORDER BY name")
             customers = [row[0] for row in cur.fetchall()]
-            for combo in [self.customer_filter, self.det_customer_filter]:
-                combo["values"] = ["All"] + customers
             cur.execute("SELECT DISTINCT name FROM collectors ORDER BY name")
             collectors = [row[0] for row in cur.fetchall()]
-            for combo in [self.collector_filter, self.det_collector_filter]:
-                combo["values"] = ["All"] + collectors
             cur.execute("SELECT DISTINCT code FROM currencies ORDER BY code")
             currencies = [row[0] for row in cur.fetchall()]
-            for combo in [
-                self.currency_filter,
-                self.det_currency_filter,
-                self.cur_currency_filter,
-            ]:
-                combo["values"] = ["All"] + currencies
             conn.close()
+
+            if bankers != self._dropdown_cache["bankers"]:
+                for combo in [self.banker_filter, self.det_banker_filter]:
+                    combo["values"] = ["All"] + bankers
+                self._dropdown_cache["bankers"] = bankers
+
+            if customers != self._dropdown_cache["customers"]:
+                for combo in [self.customer_filter, self.det_customer_filter]:
+                    combo["values"] = ["All"] + customers
+                self._dropdown_cache["customers"] = customers
+
+            if collectors != self._dropdown_cache["collectors"]:
+                for combo in [self.collector_filter, self.det_collector_filter]:
+                    combo["values"] = ["All"] + collectors
+                self._dropdown_cache["collectors"] = collectors
+
+            if currencies != self._dropdown_cache["currencies"]:
+                for combo in [
+                    self.currency_filter,
+                    self.det_currency_filter,
+                    self.cur_currency_filter,
+                ]:
+                    combo["values"] = ["All"] + currencies
+                self._dropdown_cache["currencies"] = currencies
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load dropdown values: {e}")
 
@@ -726,15 +744,15 @@ class ReportsPage:
         elif status in ("closed", "completed"):
             query += " AND UPPER(status) = 'CLOSED'"
         elif status == "pending":
-            query += " AND COALESCE(pending_eur, 0) > 0"
+            query += " AND pending_eur > 0"
         elif status == "received":
-            query += " AND COALESCE(eur_received, 0) > 0"
+            query += " AND eur_received > 0"
         elif status == "expected":
-            query += " AND COALESCE(eur_expected, 0) > 0"
+            query += " AND eur_expected > 0"
         elif status == "partial":
             query += (
-                " AND COALESCE(eur_received, 0) > 0"
-                " AND COALESCE(pending_eur, 0) > 0"
+                " AND eur_received > 0"
+                " AND pending_eur > 0"
             )
         return query, params
 

@@ -32,6 +32,9 @@ class BankerPage:
         self._editing_payment_widget = None
         self._payments_loaded = False
         self._banker_filter_values = []
+        self._overall_usd_cache = {}
+        self._filtered_usd_cache = {}
+        self._payments_cache = {}
 
         self._ensure_payment_snapshot_columns()
         self.refresh()
@@ -647,12 +650,37 @@ class BankerPage:
         conn.close()
 
     def _reload_all_views_after_payment_change(self, banker_name):
+        self._invalidate_banker_caches(banker_name)
         self.load_payments()
         selected_summary_banker = self.banker_filter.get()
         if selected_summary_banker == banker_name:
             self.search_data()
         else:
             self.update_remaining(banker_name)
+
+    def _invalidate_banker_caches(self, banker_name=None):
+        if banker_name is None:
+            self._overall_usd_cache = {}
+            self._filtered_usd_cache = {}
+            self._payments_cache = {}
+            return
+
+        banker_key = str(banker_name or "").strip().lower()
+        self._overall_usd_cache = {
+            key: value
+            for key, value in self._overall_usd_cache.items()
+            if key[0] != banker_key
+        }
+        self._filtered_usd_cache = {
+            key: value
+            for key, value in self._filtered_usd_cache.items()
+            if key[0] != banker_key
+        }
+        self._payments_cache = {
+            key: value
+            for key, value in self._payments_cache.items()
+            if key[0] != banker_key
+        }
 
     def get_rate(self, banker, currency, deal_date=None):
         conn = self.db()
@@ -841,6 +869,7 @@ class BankerPage:
 
     def refresh(self):
         self._load_banker_filter_values()
+        self._invalidate_banker_caches()
 
         if self.banker_filter.get().strip():
             return
@@ -953,6 +982,10 @@ class BankerPage:
         self.currency_summary_lbl.config(text="\n".join(lines))
 
     def _compute_overall_usd_total(self, banker, up_to_date=None):
+        cache_key = (str(banker or "").strip().lower(), up_to_date or "")
+        if cache_key in self._overall_usd_cache:
+            return self._overall_usd_cache[cache_key]
+
         conn = self.db()
         transactions = self._fetch_transaction_rows(
             conn, banker=banker, date_to=up_to_date
@@ -968,9 +1001,18 @@ class BankerPage:
             rate = self._resolve_rate_from_lookup(rate_lookup, banker, currency, deal_date)
             total_usd += (amount / rate) if rate else 0.0
         conn.close()
+        self._overall_usd_cache[cache_key] = total_usd
         return total_usd
 
     def _compute_filtered_usd_total(self, banker=None, date_from=None, date_to=None):
+        cache_key = (
+            str(banker or "").strip().lower(),
+            date_from or "",
+            date_to or "",
+        )
+        if cache_key in self._filtered_usd_cache:
+            return self._filtered_usd_cache[cache_key]
+
         conn = self.db()
         transactions = self._fetch_transaction_rows(
             conn,
@@ -992,6 +1034,7 @@ class BankerPage:
             )
             total_usd += (amount / rate) if rate else 0.0
         conn.close()
+        self._filtered_usd_cache[cache_key] = total_usd
         return total_usd
 
     def _compute_visible_total_usd(self):
@@ -1039,6 +1082,7 @@ class BankerPage:
         )
         conn.commit()
         conn.close()
+        self._invalidate_banker_caches(banker)
         self._recalculate_payment_snapshots(banker)
 
         self.pay_entry.delete(0, tk.END)
@@ -1157,6 +1201,14 @@ class BankerPage:
             messagebox.showerror("Error", f"Failed to write PDF: {exc}")
 
     def _fetch_payments_for_current_filters(self, banker):
+        cache_key = (
+            str(banker or "").strip().lower(),
+            self.date_from.get() or "",
+            self.date_to.get() or "",
+        )
+        if cache_key in self._payments_cache:
+            return list(self._payments_cache[cache_key])
+
         conn = self.db()
         cur = conn.cursor()
 
@@ -1174,6 +1226,7 @@ class BankerPage:
         cur.execute(query, params)
         rows = cur.fetchall()
         conn.close()
+        self._payments_cache[cache_key] = list(rows)
         return rows
 
     def _fetch_pdf_totals(self, banker):

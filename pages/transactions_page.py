@@ -552,7 +552,7 @@ class TransactionsPage:
         cur.execute(
             """SELECT SUM(eur_expected), SUM(eur_received), SUM(pending_eur),
                       SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END), SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END)
-                      FROM transactions WHERE deal_date=? AND COALESCE(transaction_type, 'REGULAR')='REGULAR'""",
+                      FROM transactions WHERE deal_date=? AND (transaction_type='REGULAR' OR transaction_type IS NULL)""",
             (str(date.today()),),
         )
         exp, rec, pend, open_c, closed_c = cur.fetchone()

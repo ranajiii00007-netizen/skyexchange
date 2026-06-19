@@ -245,6 +245,7 @@ def admin_create_user():
             ),
         )
         conn.commit()
+        database.bump_app_revision()
         flash("Collector account created.", "success")
     except Exception:
         conn.rollback()
@@ -264,6 +265,7 @@ def admin_set_user_status(user_id):
     cur.execute("UPDATE collector_users SET status=? WHERE id=?", (status, user_id))
     conn.commit()
     conn.close()
+    database.bump_app_revision()
     flash("Collector access updated.", "success")
     return redirect(url_for("admin_users"))
 
@@ -284,6 +286,7 @@ def admin_reset_user_password(user_id):
     )
     conn.commit()
     conn.close()
+    database.bump_app_revision()
     flash("Password reset.", "success")
     return redirect(url_for("admin_users"))
 
@@ -405,6 +408,7 @@ def receive(transaction_id):
             ),
         )
         conn.commit()
+        database.bump_app_revision()
         flash("Payment recorded.", "success")
     except Exception:
         conn.rollback()

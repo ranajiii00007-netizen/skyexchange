@@ -124,8 +124,11 @@ class AppStyles:
         style.map(
             "Treeview",
             background=[
-                ("selected", cls.COLORS["selected"]),
+                ("selected", cls.COLORS["primary"]),
                 ("hover", cls.COLORS["hover"]),
+            ],
+            foreground=[
+                ("selected", cls.COLORS["white"]),
             ],
         )
 

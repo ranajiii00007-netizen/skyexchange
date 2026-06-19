@@ -163,6 +163,7 @@ class TransactionsManagerPage:
         self._customer_names = {}
         self._customer_cell_labels = {}
         self._customer_overlay_job = None
+        self._row_cache = {}
         self.edit_popup = None
 
         self.frame = ttk.Frame(notebook)
@@ -415,6 +416,7 @@ class TransactionsManagerPage:
         self.edit_expected = None
         self.edit_received = None
         self.edit_status = None
+        self.edit_type = None
 
     def _build_edit_fields(self, parent):
         inner = tk.Frame(parent, bg=styles.AppStyles.COLORS["white"])
@@ -504,6 +506,23 @@ class TransactionsManagerPage:
             row2, values=["OPEN", "CLOSED"], width=22, font=styles.AppStyles.FONTS["body"]
         )
         self.edit_status.grid(row=1, column=2, sticky="w", padx=(5, 15), pady=(0, 5))
+
+        tk.Label(
+            row2,
+            text="Type",
+            font=styles.AppStyles.FONTS["body"],
+            fg=styles.AppStyles.COLORS["text_secondary"],
+            bg=styles.AppStyles.COLORS["white"],
+        ).grid(row=0, column=3, sticky="w", padx=(5, 2))
+
+        self.edit_type = ttk.Combobox(
+            row2,
+            values=["REGULAR", "PERSONAL"],
+            width=22,
+            font=styles.AppStyles.FONTS["body"],
+            state="readonly",
+        )
+        self.edit_type.grid(row=1, column=3, sticky="w", padx=(5, 15), pady=(0, 5))
 
         btn_frame = tk.Frame(inner, bg=styles.AppStyles.COLORS["white"])
         btn_frame.pack(fill="x", pady=(6, 0))
@@ -800,6 +819,7 @@ class TransactionsManagerPage:
         self.banker_filter.set_values(bankers)
         if self.edit_banker is not None:
             self.edit_banker.set_values(bankers)
+        conn.close()
 
     def search_transactions(self):
         conn = self.db()
@@ -833,8 +853,12 @@ class TransactionsManagerPage:
             params.append(self.status_filter.get())
 
         if self.type_filter.get() != "ALL":
-            query += " AND COALESCE(transaction_type, 'REGULAR')=?"
-            params.append(self.type_filter.get())
+            if self.type_filter.get() == "REGULAR":
+                query += " AND (transaction_type=? OR transaction_type IS NULL)"
+                params.append("REGULAR")
+            else:
+                query += " AND transaction_type=?"
+                params.append(self.type_filter.get())
 
         if self.date_from.get().strip():
             query += " AND deal_date>=?"
@@ -847,16 +871,19 @@ class TransactionsManagerPage:
         query += " ORDER BY id DESC"
         cur.execute(query, params)
         rows = cur.fetchall()
+        conn.close()
         self.populate_table(rows)
 
     def populate_table(self, rows):
         self._clear_customer_cell_highlights()
         self._customer_names = {}
+        self._row_cache = {}
         self.table.delete(*self.table.get_children())
 
         total_expected = total_received = total_pending = 0.0
 
         for r in rows:
+            self._row_cache[int(r[0])] = r
             expected = float(r[6] or 0)
             received = float(r[7] or 0)
             pending = float(r[8] or 0)
@@ -965,6 +992,7 @@ class TransactionsManagerPage:
         self.edit_expected = None
         self.edit_received = None
         self.edit_status = None
+        self.edit_type = None
 
     def _populate_edit_fields(self, row):
         collector_val = (row[2] or "").strip()
@@ -998,12 +1026,20 @@ class TransactionsManagerPage:
         self.edit_received.insert(0, str(row[7] or 0))
 
         self.edit_status.set(row[10] or "OPEN")
+        self.edit_type.set((row[13] or "REGULAR").strip().upper())
 
     def _get_transaction_by_id(self, transaction_id):
+        cached_row = self._row_cache.get(int(transaction_id))
+        if cached_row is not None:
+            return cached_row
         conn = self.db()
         cur = conn.cursor()
         cur.execute(f"{self._transactions_select_query()} WHERE id=?", (transaction_id,))
-        return cur.fetchone()
+        row = cur.fetchone()
+        conn.close()
+        if row is not None:
+            self._row_cache[int(transaction_id)] = row
+        return row
 
     def _get_today_rate(self, currency_code):
         today = date.today().strftime("%Y-%m-%d")
@@ -1036,9 +1072,11 @@ class TransactionsManagerPage:
                 if row and row[0] is not None:
                     value = float(row[0])
                     if value > 0:
+                        conn.close()
                         return value
             except Exception:
                 continue
+        conn.close()
         return None
 
     def _recalculate_eur_values(
@@ -1085,6 +1123,7 @@ class TransactionsManagerPage:
         old_pending = float(row[8] or 0)
         old_foreign = float(row[9] or 0)
         old_status = (row[10] or "OPEN").strip().upper()
+        old_type = (row[13] or "REGULAR").strip().upper()
 
         ui_collector = self.edit_collector.get().strip()
         ui_banker = self.edit_banker.get().strip()
@@ -1093,6 +1132,7 @@ class TransactionsManagerPage:
         ui_expected = self.edit_expected.get().strip()
         ui_received = self.edit_received.get().strip()
         ui_status = self.edit_status.get().strip().upper()
+        ui_type = self.edit_type.get().strip().upper() if self.edit_type else ""
 
         def canonical_from_master(raw_value, master_values):
             raw = (raw_value or "").strip()
@@ -1113,6 +1153,7 @@ class TransactionsManagerPage:
         pending = old_pending
         foreign_amount = old_foreign
         status = old_status if old_status in ("OPEN", "CLOSED") else "OPEN"
+        transaction_type = old_type if old_type in ("REGULAR", "PERSONAL") else "REGULAR"
 
         collector_values = getattr(self.edit_collector, "values", [])
         banker_values = getattr(self.edit_banker, "values", [])
@@ -1191,11 +1232,14 @@ class TransactionsManagerPage:
         else:
             status = "CLOSED" if pending <= 0 else "OPEN"
 
+        if ui_type in ("REGULAR", "PERSONAL"):
+            transaction_type = ui_type
+
         conn = self.db()
         cur = conn.cursor()
         cur.execute(
             "UPDATE transactions SET collector_name=?, banker_name=?, target_currency=?, "
-            "exchange_rate=?, eur_expected=?, eur_received=?, pending_eur=?, foreign_amount=?, status=? WHERE id=?",
+            "exchange_rate=?, eur_expected=?, eur_received=?, pending_eur=?, foreign_amount=?, status=?, transaction_type=? WHERE id=?",
             (
                 collector,
                 banker,
@@ -1206,10 +1250,12 @@ class TransactionsManagerPage:
                 pending,
                 foreign_amount,
                 status,
+                transaction_type,
                 self.selected_id,
             ),
         )
         conn.commit()
+        conn.close()
 
         self.edit_collector.delete(0, tk.END)
         self.edit_collector.insert(0, collector)
@@ -1233,6 +1279,7 @@ class TransactionsManagerPage:
         self.edit_received.insert(0, f"{rec:.2f}")
 
         self.edit_status.set(status)
+        self.edit_type.set(transaction_type)
 
         messagebox.showinfo("Updated", "Transaction updated")
         self._close_edit_popup()
@@ -1251,6 +1298,7 @@ class TransactionsManagerPage:
         cur = conn.cursor()
         cur.execute("DELETE FROM transactions WHERE id=?", (self.selected_id,))
         conn.commit()
+        conn.close()
 
         messagebox.showinfo("Deleted", "Transaction deleted")
         self.selected_id = None

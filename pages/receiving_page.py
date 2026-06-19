@@ -215,6 +215,7 @@ class ReceivingPage:
             ("Collector", "p_collector", False),
             ("Banker", "p_banker", False),
             ("Currency", "p_currency", False),
+            ("Picked By", "p_picked_by", False),
         ]
 
         for text, attr, is_date in filters:
@@ -368,6 +369,7 @@ class ReceivingPage:
             "expected",
             "received",
             "pending",
+            "picked_by",
         )
 
         pending_scroll_y = ttk.Scrollbar(container, orient="vertical")
@@ -404,11 +406,13 @@ class ReceivingPage:
             "expected": "Expected EUR",
             "received": "Received EUR",
             "pending": "Pending EUR",
+            "picked_by": "Picked By",
         }
 
         pending_col_widths = {
             "date": 90, "type": 75, "customer": 140, "collector": 110,
             "currency": 70, "expected": 100, "received": 100, "pending": 100,
+            "picked_by": 120,
         }
         for c in cols:
             self.pending_table.heading(c, text=headings[c])
@@ -478,6 +482,7 @@ class ReceivingPage:
             ("Collector", "r_collector"),
             ("Banker", "r_banker"),
             ("Currency", "r_currency"),
+            ("Picked By", "r_picked_by"),
         ]
 
         for text, attr in filters:
@@ -616,7 +621,7 @@ class ReceivingPage:
 
         tk.Label(
             container,
-            text="Completed Transactions",
+            text="Received Transactions",
             font=styles.AppStyles.FONTS["heading"],
             fg=styles.AppStyles.COLORS["success"],
             bg=styles.AppStyles.COLORS["white"],
@@ -631,6 +636,8 @@ class ReceivingPage:
             "currency",
             "expected",
             "received",
+            "picked_by",
+            "status",
         )
 
         received_scroll_y = ttk.Scrollbar(container, orient="vertical")
@@ -667,20 +674,30 @@ class ReceivingPage:
             "currency": "Currency",
             "expected": "Expected EUR",
             "received": "Received EUR",
+            "picked_by": "Picked By",
+            "status": "Status",
         }
 
         for c in cols2:
             self.received_table.heading(c, text=headings2[c])
             anchor = (
                 "center"
-                if c in ("deal_date", "received_date", "type", "currency")
+                if c in ("deal_date", "received_date", "type", "currency", "status")
                 else ("e" if c in ("expected", "received") else "w")
             )
             self.received_table.column(
                 c,
                 width=140
                 if c == "customer"
-                else (110 if c == "collector" else (70 if c == "currency" else 100)),
+                else (
+                    110
+                    if c == "collector"
+                    else (
+                        70
+                        if c == "currency"
+                        else (120 if c == "picked_by" else (90 if c == "status" else 100))
+                    )
+                ),
                 anchor=anchor,
                 minwidth=90 if c in ("customer", "collector") else 70,
             )
@@ -698,6 +715,7 @@ class ReceivingPage:
 
         self.received_table.pack(fill="both", expand=True)
         self.received_table.tag_configure("closed", background="#d4edda")
+        self.received_table.tag_configure("partial", background="#fff3cd")
         self.received_table.bind(
             "<Configure>", lambda _event: self._schedule_customer_cell_highlight("received")
         )
@@ -781,7 +799,10 @@ class ReceivingPage:
                 continue
 
             tags = table.item(row_id, "tags")
-            bg = "#fff3cd" if "pending" in tags else "#d4edda"
+            if "pending" in tags or "partial" in tags:
+                bg = "#fff3cd"
+            else:
+                bg = "#d4edda"
             label = tk.Label(
                 table,
                 text=customer_name,
@@ -850,8 +871,8 @@ class ReceivingPage:
         status = "CLOSED" if pending == 0 else "OPEN"
 
         cur.execute(
-            "UPDATE transactions SET eur_received=?, pending_eur=?, status=?, received_date=? WHERE id=?",
-            (new_rec, pending, status, str(date.today()), self.selected_id),
+            "UPDATE transactions SET eur_received=?, pending_eur=?, status=?, received_date=?, picked_by=? WHERE id=?",
+            (new_rec, pending, status, str(date.today()), "Admin", self.selected_id),
         )
         conn.commit()
 
@@ -877,6 +898,11 @@ class ReceivingPage:
         cur.execute("SELECT name FROM bankers WHERE status=1")
         bankers = [r[0] for r in cur.fetchall()]
 
+        cur.execute(
+            "SELECT DISTINCT picked_by FROM transactions WHERE TRIM(COALESCE(picked_by, '')) <> '' ORDER BY picked_by"
+        )
+        picked_by_values = [r[0] for r in cur.fetchall()]
+
         self.p_customer.set_values(customers)
         self.p_exclude_customer.set_values(customers)
         self.r_customer.set_values(customers)
@@ -887,6 +913,8 @@ class ReceivingPage:
         self.r_banker.set_values(bankers)
         self.p_currency.set_values(currencies)
         self.r_currency.set_values(currencies)
+        self.p_picked_by.set_values(picked_by_values)
+        self.r_picked_by.set_values(picked_by_values)
 
     def _pending_where_clause(self, include_status=True):
         clauses = []
@@ -915,6 +943,9 @@ class ReceivingPage:
         if self.p_currency.get().strip():
             clauses.append("LOWER(t.target_currency) LIKE ?")
             params.append(f"%{self.p_currency.get().strip().lower()}%")
+        if self.p_picked_by.get().strip():
+            clauses.append("LOWER(COALESCE(t.picked_by, '')) LIKE ?")
+            params.append(f"%{self.p_picked_by.get().strip().lower()}%")
 
         where_clause = " AND ".join(clauses) if clauses else "1=1"
         return where_clause, params
@@ -923,7 +954,7 @@ class ReceivingPage:
         clauses = []
         params = []
         if include_status:
-            clauses.append("t.status='CLOSED'")
+            clauses.append("COALESCE(t.eur_received, 0) > 0")
 
         if self.r_from.get().strip():
             clauses.append("t.deal_date>=?")
@@ -946,6 +977,9 @@ class ReceivingPage:
         if self.r_currency.get().strip():
             clauses.append("LOWER(t.target_currency) LIKE ?")
             params.append(f"%{self.r_currency.get().strip().lower()}%")
+        if self.r_picked_by.get().strip():
+            clauses.append("LOWER(COALESCE(t.picked_by, '')) LIKE ?")
+            params.append(f"%{self.r_picked_by.get().strip().lower()}%")
         if self.r_received_from.get().strip():
             clauses.append("t.received_date>=?")
             params.append(self.r_received_from.get().strip())
@@ -964,10 +998,11 @@ class ReceivingPage:
         conn = self.db()
         cur = conn.cursor()
 
-        where_clause, params = self._pending_where_clause(include_status=True)
+        where_clause, params = self._pending_where_clause(include_status=False)
         query = (
             "SELECT t.id, t.deal_date, COALESCE(t.transaction_type, 'REGULAR') AS transaction_type, "
-            "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received, t.pending_eur "
+            "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received, t.pending_eur, "
+            "COALESCE(t.picked_by, ''), t.status "
             "FROM transactions t "
             f"WHERE {where_clause} ORDER BY t.id DESC"
         )
@@ -975,26 +1010,22 @@ class ReceivingPage:
         rows = cur.fetchall()
 
         for r in rows:
+            if (r[10] or "OPEN") != "OPEN":
+                continue
             self._customer_overlays["pending"]["names"][str(r[0])] = r[3]
-            values = (r[1], r[2], "", r[4], r[5], r[6], r[7], r[8])
+            values = (r[1], r[2], "", r[4], r[5], r[6], r[7], r[8], r[9])
             self.pending_table.insert(
                 "", tk.END, iid=r[0], values=values, tags=("pending",)
             )
         self._schedule_customer_cell_highlight("pending")
 
-        totals_where_clause, totals_params = self._pending_where_clause(
-            include_status=False
-        )
-        totals_query = (
-            "SELECT COUNT(*), "
-            "SUM(CASE WHEN t.status='OPEN' THEN 1 ELSE 0 END), "
-            "SUM(CASE WHEN t.status='CLOSED' THEN 1 ELSE 0 END), "
-            "SUM(t.eur_expected), SUM(t.eur_received), SUM(t.pending_eur) "
-            "FROM transactions t "
-            f"WHERE {totals_where_clause} AND COALESCE(t.transaction_type, 'REGULAR')='REGULAR'"
-        )
-        cur.execute(totals_query, totals_params)
-        deals, open_deals, closed_deals, exp, rec, pen = cur.fetchone()
+        regular_rows = [r for r in rows if (r[2] or "REGULAR") == "REGULAR"]
+        deals = len(regular_rows)
+        open_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "OPEN")
+        closed_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "CLOSED")
+        exp = sum(float(r[6] or 0) for r in regular_rows)
+        rec = sum(float(r[7] or 0) for r in regular_rows)
+        pen = sum(float(r[8] or 0) for r in regular_rows)
 
         self.p_deals.config(text=f"Deals: {deals or 0}")
         self.p_open.config(text=f"Open Deals: {open_deals or 0}")
@@ -1014,7 +1045,8 @@ class ReceivingPage:
         where_clause, params = self._received_where_clause(include_status=True)
         query = (
             "SELECT t.id, t.deal_date, t.received_date, COALESCE(t.transaction_type, 'REGULAR') AS transaction_type, "
-            "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received "
+            "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received, "
+            "COALESCE(t.picked_by, ''), t.status "
             "FROM transactions t "
             f"WHERE {where_clause} ORDER BY t.id DESC"
         )
@@ -1022,26 +1054,30 @@ class ReceivingPage:
         rows = cur.fetchall()
 
         for r in rows:
+            status = (r[10] or "OPEN").upper()
+            if float(r[8] or 0) <= 0:
+                continue
             self._customer_overlays["received"]["names"][str(r[0])] = r[4]
-            values = (r[1], r[2], r[3], "", r[5], r[6], r[7], r[8])
+            values = (r[1], r[2], r[3], "", r[5], r[6], r[7], r[8], r[9], status)
             self.received_table.insert(
-                "", tk.END, iid=r[0], values=values, tags=("closed",)
+                "",
+                tk.END,
+                iid=r[0],
+                values=values,
+                tags=("closed",) if status == "CLOSED" else ("partial",),
             )
         self._schedule_customer_cell_highlight("received")
 
-        totals_where_clause, totals_params = self._received_where_clause(
-            include_status=False
-        )
-        totals_query = (
-            "SELECT COUNT(*), "
-            "SUM(CASE WHEN t.status='OPEN' THEN 1 ELSE 0 END), "
-            "SUM(CASE WHEN t.status='CLOSED' THEN 1 ELSE 0 END), "
-            "SUM(t.eur_expected), SUM(t.eur_received) "
-            "FROM transactions t "
-            f"WHERE {totals_where_clause} AND COALESCE(t.transaction_type, 'REGULAR')='REGULAR'"
-        )
-        cur.execute(totals_query, totals_params)
-        deals, open_deals, closed_deals, exp, rec = cur.fetchone()
+        regular_rows = [
+            r
+            for r in rows
+            if (r[3] or "REGULAR") == "REGULAR" and float(r[8] or 0) > 0
+        ]
+        deals = len(regular_rows)
+        open_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "OPEN")
+        closed_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "CLOSED")
+        exp = sum(float(r[7] or 0) for r in regular_rows)
+        rec = sum(float(r[8] or 0) for r in regular_rows)
 
         self.r_deals.config(text=f"Deals: {deals or 0}")
         self.r_open.config(text=f"Open Deals: {open_deals or 0}")
@@ -1057,6 +1093,7 @@ class ReceivingPage:
         self.p_collector.delete(0, tk.END)
         self.p_banker.delete(0, tk.END)
         self.p_currency.delete(0, tk.END)
+        self.p_picked_by.delete(0, tk.END)
         self.p_today()
 
     def clear_received_filters(self):
@@ -1067,6 +1104,7 @@ class ReceivingPage:
         self.r_collector.delete(0, tk.END)
         self.r_banker.delete(0, tk.END)
         self.r_currency.delete(0, tk.END)
+        self.r_picked_by.delete(0, tk.END)
         self.r_received_from.delete(0, tk.END)
         self.r_received_to.delete(0, tk.END)
         self.r_today()
