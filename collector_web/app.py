@@ -64,7 +64,7 @@ def ensure_database_ready():
 
 def db():
     ensure_database_ready()
-    return database.connect_db(reuse_postgres=is_vercel())
+    return database.connect_db(reuse_postgres=True)
 
 
 def login_required(view_func):
@@ -655,10 +655,6 @@ def admin_banker_details(banker_name):
     
     conn = db()
     cur = conn.cursor()
-    
-    # Recalculate snap shots to ensure fresh accuracy
-    recalculate_banker_payments(cur, banker_name)
-    conn.commit()
     
     # Fetch payments
     cur.execute("""
