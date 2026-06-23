@@ -245,6 +245,81 @@ def customer_login():
     return render_template("customer_login.html")
 
 
+@app.route("/customer/register", methods=["GET", "POST"])
+def customer_register():
+    if session.get("customer_name"):
+        return redirect(url_for("customer_dashboard"))
+
+    if request.method == "POST":
+        fullname = request.form.get("fullname", "").strip()
+        phone = request.form.get("phone", "").strip() or None
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        if not fullname:
+            flash("Full Name is required.", "error")
+            return redirect(url_for("customer_register"))
+
+        if len(username) < 3:
+            flash("Username must be at least 3 characters.", "error")
+            return redirect(url_for("customer_register"))
+
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.", "error")
+            return redirect(url_for("customer_register"))
+
+        conn = db()
+        cur = conn.cursor()
+        try:
+            # Check username uniqueness in customer_users
+            cur.execute("SELECT 1 FROM customer_users WHERE username=?", (username,))
+            if cur.fetchone():
+                flash("That username is already taken.", "error")
+                conn.close()
+                return redirect(url_for("customer_register"))
+
+            # Check username uniqueness in collector_users just to prevent overlaps
+            cur.execute("SELECT 1 FROM collector_users WHERE username=?", (username,))
+            if cur.fetchone():
+                flash("That username is already taken.", "error")
+                conn.close()
+                return redirect(url_for("customer_register"))
+
+            # Create Customer Profile
+            cur.execute(
+                """
+                INSERT INTO customers (name, phone, status, created_at)
+                VALUES (?, ?, 1, ?)
+                """,
+                (fullname, phone, str(date.today())),
+            )
+
+            # Create Login Credentials
+            cur.execute(
+                """
+                INSERT INTO customer_users (customer_name, username, password_hash, status, created_at)
+                VALUES (?, ?, ?, 1, ?)
+                """,
+                (
+                    fullname,
+                    username,
+                    generate_password_hash(password),
+                    str(date.today()),
+                ),
+            )
+            conn.commit()
+            database.bump_app_revision()
+            flash("Your account has been created. Please sign in.", "success")
+            return redirect(url_for("customer_login"))
+        except Exception as exc:
+            conn.rollback()
+            flash(f"Registration error: {exc}", "error")
+        finally:
+            conn.close()
+
+    return render_template("customer_register.html")
+
+
 @app.route("/customer/logout")
 def customer_logout():
     session.clear()

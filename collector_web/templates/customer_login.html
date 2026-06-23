@@ -26,6 +26,10 @@
       <button type="submit" style="background: var(--brand); color: #fff;">Sign In</button>
     </form>
     
+    <p style="text-align: center; margin-top: 12px; font-size: 13px;">
+      Don't have an account? <a href="{{ url_for('customer_register') }}" style="color: var(--brand); text-decoration: none; font-weight: 600;">Sign up here</a>
+    </p>
+    
     <div style="margin-top: 20px; text-align: center; font-size: 13px;">
       <p style="color: var(--muted); margin-bottom: 8px;">Are you a collector or admin?</p>
       <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Collector Access</a>
