@@ -418,6 +418,17 @@ def create_tables():
     """)
 
     cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS customer_users (
+        id {id_type},
+        customer_name TEXT NOT NULL,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        status INTEGER DEFAULT 1,
+        created_at TEXT
+    )
+    """)
+
+    cur.execute(f"""
     CREATE TABLE IF NOT EXISTS transactions (
         id {id_type},
         customer_name TEXT NOT NULL,

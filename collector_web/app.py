@@ -154,7 +154,7 @@ def healthz():
         conn = database.connect_db(reuse_postgres=False)
         cur = conn.cursor()
         checks = {}
-        for table_name in ("collector_users", "collectors", "transactions"):
+        for table_name in ("collector_users", "customer_users", "collectors", "transactions"):
             cur.execute(f"SELECT COUNT(*) FROM {table_name}")
             checks[table_name] = cur.fetchone()[0]
         conn.close()
@@ -201,6 +201,209 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+def customer_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("customer_name"):
+            return redirect(url_for("customer_login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/customer/login", methods=["GET", "POST"])
+def customer_login():
+    if session.get("customer_name"):
+        return redirect(url_for("customer_dashboard"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        conn = db()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT customer_name, password_hash
+            FROM customer_users
+            WHERE username=? AND status=1
+            """,
+            (username,),
+        )
+        user = cur.fetchone()
+        conn.close()
+
+        if user and check_password_hash(user[1], password):
+            session.clear()
+            session["username"] = username
+            session["customer_name"] = user[0]
+            return redirect(url_for("customer_dashboard"))
+
+        flash("Invalid username or password.", "error")
+
+    return render_template("customer_login.html")
+
+
+@app.route("/customer/logout")
+def customer_logout():
+    session.clear()
+    return redirect(url_for("customer_login"))
+
+
+@app.route("/customer/dashboard")
+@customer_required
+def customer_dashboard():
+    customer_name = session["customer_name"]
+    conn = db()
+    cur = conn.cursor()
+
+    # Fetch active currencies
+    cur.execute("SELECT code FROM currencies WHERE status=1 ORDER BY code")
+    currencies = [dict(code=row[0]) for row in cur.fetchall()]
+
+    # Fetch current exchange rates for active currencies (today or latest fallback)
+    current_rates = {}
+    for cur_obj in currencies:
+        code = cur_obj["code"]
+        cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? AND rate_date=?", (code, str(date.today())))
+        row = cur.fetchone()
+        if row:
+            current_rates[code] = float(row[0])
+        else:
+            cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? ORDER BY rate_date DESC, id DESC LIMIT 1", (code,))
+            row = cur.fetchone()
+            current_rates[code] = float(row[0]) if row else 1.0
+
+    # Fetch customer's pending transactions
+    cur.execute(
+        """
+        SELECT id, deal_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, pending_eur, notes, status
+        FROM transactions
+        WHERE LOWER(customer_name)=LOWER(?) AND status='OPEN'
+        ORDER BY id DESC
+        """,
+        (customer_name,),
+    )
+    pending_rows = [dict(
+        id=r[0], deal_date=r[1], target_currency=r[2], exchange_rate=r[3], foreign_amount=r[4],
+        eur_expected=r[5], eur_received=r[6], pending_eur=r[7], notes=r[8], status=r[9]
+    ) for r in cur.fetchall()]
+
+    # Fetch customer's completed transactions
+    cur.execute(
+        """
+        SELECT id, deal_date, received_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, notes, status
+        FROM transactions
+        WHERE LOWER(customer_name)=LOWER(?) AND status='CLOSED'
+        ORDER BY id DESC
+        """,
+        (customer_name,),
+    )
+    received_rows = [dict(
+        id=r[0], deal_date=r[1], received_date=r[2], target_currency=r[3], exchange_rate=r[4], foreign_amount=r[5],
+        eur_expected=r[6], eur_received=r[7], notes=r[8], status=r[9]
+    ) for r in cur.fetchall()]
+
+    # Calculate totals
+    cur.execute(
+        """
+        SELECT COUNT(*), SUM(eur_expected), SUM(eur_received), SUM(pending_eur)
+        FROM transactions
+        WHERE LOWER(customer_name)=LOWER(?)
+        """,
+        (customer_name,),
+    )
+    totals_row = cur.fetchone()
+    conn.close()
+
+    summary = {
+        "count": totals_row[0] or 0,
+        "expected": totals_row[1] or 0,
+        "received": totals_row[2] or 0,
+        "pending": totals_row[3] or 0,
+    }
+
+    return render_template(
+        "customer_dashboard.html",
+        customer_name=customer_name,
+        currencies=currencies,
+        current_rates=current_rates,
+        pending_txs=pending_rows,
+        received_txs=received_rows,
+        summary=summary,
+    )
+
+
+@app.route("/customer/transaction/new", methods=["POST"])
+@customer_required
+def customer_transaction_new():
+    customer_name = session["customer_name"]
+    target_currency = request.form.get("target_currency", "").strip()
+    foreign_amount = safe_float(request.form.get("foreign_amount"))
+    eur_expected = safe_float(request.form.get("eur_expected"))
+    notes = request.form.get("notes", "").strip() or None
+
+    if not target_currency:
+        flash("Target currency is required.", "error")
+        return redirect(url_for("customer_dashboard"))
+
+    if foreign_amount <= 0 and eur_expected <= 0:
+        flash("Please enter either Foreign Amount or Expected EUR.", "error")
+        return redirect(url_for("customer_dashboard"))
+
+    conn = db()
+    cur = conn.cursor()
+
+    try:
+        # Determine exchange rate
+        cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? AND rate_date=?", (target_currency, str(date.today())))
+        row = cur.fetchone()
+        if row:
+            exchange_rate = float(row[0])
+        else:
+            cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? ORDER BY rate_date DESC, id DESC LIMIT 1", (target_currency,))
+            row = cur.fetchone()
+            exchange_rate = float(row[0]) if row else 1.0
+
+        # Calculations
+        if eur_expected <= 0 and foreign_amount > 0:
+            eur_expected = foreign_amount / exchange_rate
+        elif foreign_amount <= 0 and eur_expected > 0:
+            foreign_amount = eur_expected * exchange_rate
+
+        pending_eur = eur_expected
+        status = "CLOSED" if pending_eur == 0 else "OPEN"
+
+        cur.execute(
+            """
+            INSERT INTO transactions (customer_name, collector_name, banker_name, target_currency, exchange_rate, 
+                                      eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
+                                      picked_by, notes, transaction_type, received_date)
+            VALUES (?, NULL, NULL, ?, ?, ?, 0.0, ?, ?, ?, ?, 'Customer Portal', ?, 'REGULAR', NULL)
+            """,
+            (
+                customer_name,
+                target_currency,
+                exchange_rate,
+                eur_expected,
+                pending_eur,
+                foreign_amount,
+                status,
+                str(date.today()),
+                notes,
+            ),
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Transaction request submitted successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error submitting transaction: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("customer_dashboard"))
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -299,9 +502,28 @@ def admin_customers():
         id=r[0], name=r[1], phone=r[2], phone2=r[3], phone3=r[4],
         address=r[5], reference=r[6], country=r[7], status=r[8], created_at=r[9]
     ) for r in cur.fetchall()]
+
+    # Fetch customer logins
+    cur.execute(
+        """
+        SELECT id, customer_name, username, status, created_at
+        FROM customer_users
+        ORDER BY customer_name, username
+        """
+    )
+    customer_users = [dict(
+        id=r[0], customer_name=r[1], username=r[2], status=r[3], created_at=r[4]
+    ) for r in cur.fetchall()]
+
     conn.close()
     
-    return render_template("admin_customers.html", active_page="customers", customers=customers, search=search)
+    return render_template(
+        "admin_customers.html", 
+        active_page="customers", 
+        customers=customers, 
+        customer_users=customer_users, 
+        search=search
+    )
 
 
 @app.route("/admin/customers/save", methods=["POST"])
@@ -367,6 +589,101 @@ def admin_customers_delete(customer_id):
     except Exception as exc:
         conn.rollback()
         flash(f"Error deleting customer: {exc}", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin_customers"))
+
+
+@app.route("/admin/customers/create_user", methods=["POST"])
+@admin_required
+def admin_customers_create_user():
+    customer_name = request.form.get("customer_name", "").strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+
+    if len(username) < 3:
+        flash("Username must be at least 3 characters.", "error")
+        return redirect(url_for("admin_customers"))
+
+    if len(password) < 6:
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("admin_customers"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO customer_users (customer_name, username, password_hash, status, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            """,
+            (
+                customer_name,
+                username,
+                generate_password_hash(password),
+                str(date.today()),
+            ),
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Customer web account created successfully.", "success")
+    except Exception:
+        conn.rollback()
+        flash("That username already exists.", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_customers"))
+
+
+@app.route("/admin/customers/user/<int:user_id>/status", methods=["POST"])
+@admin_required
+def admin_set_customer_user_status(user_id):
+    status = 1 if request.form.get("status") == "1" else 0
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("UPDATE customer_users SET status=? WHERE id=?", (status, user_id))
+    conn.commit()
+    conn.close()
+    database.bump_app_revision()
+    flash("Customer login status updated.", "success")
+    return redirect(url_for("admin_customers"))
+
+
+@app.route("/admin/customers/user/<int:user_id>/password", methods=["POST"])
+@admin_required
+def admin_reset_customer_user_password(user_id):
+    password = request.form.get("password", "")
+    if len(password) < 6:
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("admin_customers"))
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE customer_users SET password_hash=? WHERE id=?",
+        (generate_password_hash(password), user_id),
+    )
+    conn.commit()
+    conn.close()
+    database.bump_app_revision()
+    flash("Customer password reset successfully.", "success")
+    return redirect(url_for("admin_customers"))
+
+
+@app.route("/admin/customers/user/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_customer_user(user_id):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM customer_users WHERE id=?", (user_id,))
+        conn.commit()
+        database.bump_app_revision()
+        flash("Customer login credentials deleted.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error deleting login: {exc}", "error")
     finally:
         conn.close()
     return redirect(url_for("admin_customers"))

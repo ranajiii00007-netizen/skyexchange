@@ -19,7 +19,7 @@ TABLES = [
     "banker_payments",
 ]
 
-APP_TABLES = TABLES + ["collector_users"]
+APP_TABLES = TABLES + ["collector_users", "customer_users"]
 
 
 def get_columns(cur, table_name):
