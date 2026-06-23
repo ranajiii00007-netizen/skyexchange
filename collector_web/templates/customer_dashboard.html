@@ -5,15 +5,15 @@
 <!-- Metrics grid -->
 <div class="stats-grid">
   <div class="stat-box">
-    <span>Expected EUR</span>
+    <span>EUR Amount</span>
     <h3>€{{ (summary.expected or 0) | money }}</h3>
   </div>
   <div class="stat-box success">
-    <span>Paid EUR</span>
+    <span>Received EUR</span>
     <h3>€{{ (summary.received or 0) | money }}</h3>
   </div>
   <div class="stat-box danger">
-    <span>Outstanding EUR</span>
+    <span>Pending EUR</span>
     <h3>€{{ (summary.pending or 0) | money }}</h3>
   </div>
 </div>
@@ -45,8 +45,8 @@
       </label>
 
       <label>
-        Expected EUR
-        <input type="number" step="0.01" min="0.01" id="tx-eur-expected" name="eur_expected" placeholder="Expected EUR amount" oninput="calculateForeign()">
+        EUR Amount
+        <input type="number" step="0.01" min="0.01" id="tx-eur-expected" name="eur_expected" placeholder="EUR amount" oninput="calculateForeign()">
       </label>
 
       <label style="grid-column: 1 / -1;">
@@ -101,9 +101,9 @@
           <th>ID</th>
           <th>Currency</th>
           <th>Foreign Amount</th>
-          <th>Exchange Rate</th>
-          <th>Expected EUR</th>
-          <th>Paid EUR</th>
+          <th>Expected Rate</th>
+          <th>EUR Amount</th>
+          <th>Received EUR</th>
           <th>Pending EUR</th>
           <th>Notes</th>
           <th>Status</th>
@@ -148,8 +148,8 @@
           <th>ID</th>
           <th>Currency</th>
           <th>Foreign Amount</th>
-          <th>Exchange Rate</th>
-          <th>Expected EUR</th>
+          <th>Expected Rate</th>
+          <th>EUR Amount</th>
           <th>Received EUR</th>
           <th>Notes</th>
           <th>Status</th>
