@@ -25,7 +25,11 @@
       </label>
       <button type="submit">Sign In</button>
     </form>
-    <p class="switch-link"><a href="{{ url_for('admin_login') }}">Admin access</a></p>
+    <div style="margin-top: 20px; text-align: center; font-size: 13px;">
+      <p style="color: var(--muted); margin-bottom: 8px;">Are you a customer or admin?</p>
+      <a href="{{ url_for('customer_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Customer Access</a>
+      <a href="{{ url_for('admin_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Admin Access</a>
+    </div>
   </section>
 </main>
 {% endblock %}
