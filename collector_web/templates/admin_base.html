@@ -23,6 +23,9 @@
         <li class="sidebar-item {% if active_page == 'transactions' %}active{% endif %}">
           <a href="{{ url_for('admin_transactions') }}">💸 Transactions</a>
         </li>
+        <li class="sidebar-item {% if active_page == 'receiving' %}active{% endif %}">
+          <a href="{{ url_for('admin_receiving') }}">📥 Receiving</a>
+        </li>
         <li class="sidebar-item {% if active_page == 'customers' %}active{% endif %}">
           <a href="{{ url_for('admin_customers') }}">👥 Customers</a>
         </li>

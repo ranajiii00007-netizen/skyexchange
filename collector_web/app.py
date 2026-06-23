@@ -1207,6 +1207,184 @@ def get_reports_data(filters):
     return data
 
 
+@app.route("/admin/receiving")
+@admin_required
+def admin_receiving():
+    customer = request.args.get("customer", "").strip()
+    collector = request.args.get("collector", "").strip()
+    banker = request.args.get("banker", "").strip()
+    currency = request.args.get("currency", "").strip()
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    active_tab = request.args.get("tab", "pending").strip()
+
+    conn = db()
+    cur = conn.cursor()
+
+    # Fetch dropdowns
+    cur.execute("SELECT name FROM customers WHERE status=1 ORDER BY name")
+    customers = [dict(name=row[0]) for row in cur.fetchall()]
+    cur.execute("SELECT name FROM collectors WHERE status=1 ORDER BY name")
+    collectors = [dict(name=row[0]) for row in cur.fetchall()]
+    cur.execute("SELECT code FROM currencies WHERE status=1 ORDER BY code")
+    currencies = [dict(code=row[0]) for row in cur.fetchall()]
+    cur.execute("SELECT name FROM bankers WHERE status=1 ORDER BY name")
+    bankers = [dict(name=row[0]) for row in cur.fetchall()]
+
+    dropdowns = {
+        "customers": customers, "collectors": collectors, "currencies": currencies, "bankers": bankers
+    }
+
+    # Base filter clauses
+    filter_clause = ""
+    params = []
+    if customer:
+        filter_clause += " AND LOWER(customer_name) LIKE ?"
+        params.append(f"%{customer.lower()}%")
+    if collector:
+        filter_clause += " AND collector_name = ?"
+        params.append(collector)
+    if banker:
+        filter_clause += " AND banker_name = ?"
+        params.append(banker)
+    if currency:
+        filter_clause += " AND target_currency = ?"
+        params.append(currency)
+    if date_from:
+        filter_clause += " AND deal_date >= ?"
+        params.append(date_from)
+    if date_to:
+        filter_clause += " AND deal_date <= ?"
+        params.append(date_to)
+
+    # Fetch pending list
+    pending_query = """
+        SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
+               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date
+        FROM transactions 
+        WHERE pending_eur > 0 AND UPPER(status)='OPEN'
+    """
+    cur.execute(pending_query + filter_clause + " ORDER BY deal_date DESC, id DESC", params)
+    pending_txs = [dict(
+        id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
+        exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
+        status=r[10], deal_date=r[11]
+    ) for r in cur.fetchall()]
+
+    # Fetch received list
+    received_query = """
+        SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
+               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, received_date
+        FROM transactions 
+        WHERE eur_received > 0 AND UPPER(status)='CLOSED'
+    """
+    cur.execute(received_query + filter_clause + " ORDER BY deal_date DESC, id DESC", params)
+    received_txs = [dict(
+        id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
+        exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
+        status=r[10], deal_date=r[11], received_date=r[12]
+    ) for r in cur.fetchall()]
+
+    conn.close()
+
+    # Summary totals for active list
+    active_list = pending_txs if active_tab == "pending" else received_txs
+    summary = {
+        "expected": sum(tx["eur_expected"] for tx in active_list),
+        "received": sum(tx["eur_received"] for tx in active_list),
+        "pending": sum(tx["pending_eur"] for tx in active_list),
+    }
+
+    filters = {
+        "customer": customer, "collector": collector, "banker": banker,
+        "currency": currency, "date_from": date_from, "date_to": date_to
+    }
+
+    return render_template(
+        "admin_receiving.html", active_page="receiving", active_tab=active_tab, 
+        dropdowns=dropdowns, filters=filters, summary=summary,
+        pending_txs=pending_txs, received_txs=received_txs, today=str(date.today())
+    )
+
+
+@app.route("/admin/receiving/pay/<int:transaction_id>", methods=["POST"])
+@admin_required
+def admin_receiving_pay(transaction_id):
+    amount_text = request.form.get("amount", "").strip()
+    redirect_args = {
+        key: request.args.get(key, "").strip()
+        for key in ("customer", "collector", "banker", "currency", "date_from", "date_to")
+        if request.args.get(key, "").strip()
+    }
+    redirect_args["tab"] = "pending"
+
+    amount = safe_float(amount_text)
+    if amount <= 0:
+        flash("Enter a valid received EUR amount.", "error")
+        return redirect(url_for("admin_receiving", **redirect_args))
+
+    conn = db()
+    cur = conn.cursor()
+
+    try:
+        lock_sql = ""
+        if database.using_postgres():
+            lock_sql = " FOR UPDATE"
+
+        cur.execute(
+            """
+            SELECT eur_expected, eur_received
+            FROM transactions
+            WHERE id=? AND status='OPEN'
+            """ + lock_sql,
+            (transaction_id,),
+        )
+        row = cur.fetchone()
+
+        if not row:
+            flash("Transaction was not found or is already closed.", "error")
+            conn.rollback()
+            return redirect(url_for("admin_receiving", **redirect_args))
+
+        expected = float(row[0] or 0)
+        already_received = float(row[1] or 0)
+        new_received = already_received + amount
+
+        if new_received > expected:
+            flash("Receiving amount exceeds the pending amount.", "error")
+            conn.rollback()
+            return redirect(url_for("admin_receiving", **redirect_args))
+
+        pending = expected - new_received
+        status = "CLOSED" if pending == 0 else "OPEN"
+
+        cur.execute(
+            """
+            UPDATE transactions
+            SET eur_received=?, pending_eur=?, status=?, received_date=?, picked_by=?
+            WHERE id=?
+            """,
+            (
+                new_received,
+                pending,
+                status,
+                str(date.today()),
+                "Admin",
+                transaction_id,
+            ),
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Payment recorded successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error recording payment: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_receiving", **redirect_args))
+
+
 @app.route("/admin/reports")
 @admin_required
 def admin_reports():
