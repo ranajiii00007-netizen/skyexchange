@@ -17,6 +17,8 @@ from flask import (
     send_file,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
+import uuid
 
 # ReportLab Imports
 from reportlab.lib.pagesizes import letter, landscape
@@ -33,7 +35,21 @@ import database  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("COLLECTOR_WEB_SECRET", "change-this-secret")
+
+# File Upload Settings
+UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, "collector_web", "static", "uploads")
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB limit
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
+
+# Make sure folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 _DATABASE_READY = False
+
 
 
 def is_vercel():
@@ -164,7 +180,7 @@ def healthz():
     return jsonify({"ok": True, "tables": checks})
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("collector_name"):
         return redirect(url_for("dashboard"))
@@ -212,10 +228,22 @@ def customer_required(view_func):
     return wrapper
 
 
+def banker_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("banker_name"):
+            return redirect(url_for("banker_login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+
+
+@app.route("/", methods=["GET", "POST"])
 @app.route("/customer/login", methods=["GET", "POST"])
 def customer_login():
     if session.get("customer_name"):
         return redirect(url_for("customer_dashboard"))
+
 
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -353,7 +381,7 @@ def customer_dashboard():
     # Fetch customer's pending transactions
     cur.execute(
         """
-        SELECT id, deal_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, pending_eur, notes, status
+        SELECT id, deal_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, pending_eur, notes, status, bank_account_details, bank_account_attachment
         FROM transactions
         WHERE LOWER(customer_name)=LOWER(?) AND status='OPEN'
         ORDER BY id DESC
@@ -362,13 +390,14 @@ def customer_dashboard():
     )
     pending_rows = [dict(
         id=r[0], deal_date=r[1], target_currency=r[2], exchange_rate=r[3], foreign_amount=r[4],
-        eur_expected=r[5], eur_received=r[6], pending_eur=r[7], notes=r[8], status=r[9]
+        eur_expected=r[5], eur_received=r[6], pending_eur=r[7], notes=r[8], status=r[9],
+        bank_account_details=r[10], bank_account_attachment=r[11]
     ) for r in cur.fetchall()]
 
     # Fetch customer's completed transactions
     cur.execute(
         """
-        SELECT id, deal_date, received_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, notes, status
+        SELECT id, deal_date, received_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, notes, status, bank_account_details, bank_account_attachment
         FROM transactions
         WHERE LOWER(customer_name)=LOWER(?) AND status='CLOSED'
         ORDER BY id DESC
@@ -377,7 +406,23 @@ def customer_dashboard():
     )
     received_rows = [dict(
         id=r[0], deal_date=r[1], received_date=r[2], target_currency=r[3], exchange_rate=r[4], foreign_amount=r[5],
-        eur_expected=r[6], eur_received=r[7], notes=r[8], status=r[9]
+        eur_expected=r[6], eur_received=r[7], notes=r[8], status=r[9],
+        bank_account_details=r[10], bank_account_attachment=r[11]
+    ) for r in cur.fetchall()]
+
+    # Fetch customer's saved bank accounts
+    cur.execute(
+        """
+        SELECT id, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path
+        FROM customer_bank_accounts
+        WHERE LOWER(customer_name)=LOWER(?) AND status=1
+        ORDER BY id DESC
+        """,
+        (customer_name,),
+    )
+    bank_accounts = [dict(
+        id=r[0], bank_name=r[1], account_holder_name=r[2], account_number=r[3],
+        iban=r[4], swift_code=r[5], routing_code=r[6], notes=r[7], attachment_path=r[8]
     ) for r in cur.fetchall()]
 
     # Calculate totals
@@ -407,7 +452,94 @@ def customer_dashboard():
         pending_txs=pending_rows,
         received_txs=received_rows,
         summary=summary,
+        bank_accounts=bank_accounts,
     )
+
+
+@app.route("/customer/bank-accounts/save", methods=["POST"])
+@customer_required
+def customer_bank_accounts_save():
+    customer_name = session["customer_name"]
+    account_id = request.form.get("id", "").strip()
+    bank_name = request.form.get("bank_name", "").strip()
+    account_holder_name = request.form.get("account_holder_name", "").strip()
+    account_number = request.form.get("account_number", "").strip()
+    iban = request.form.get("iban", "").strip() or None
+    swift_code = request.form.get("swift_code", "").strip() or None
+    routing_code = request.form.get("routing_code", "").strip() or None
+    notes = request.form.get("notes", "").strip() or None
+
+    if not bank_name or not account_holder_name or not account_number:
+        flash("Bank Name, Holder Name, and Account Number are required.", "error")
+        return redirect(url_for("customer_dashboard"))
+
+    attachment_path = request.form.get("existing_attachment", "") or None
+    file = request.files.get("attachment")
+    if file and file.filename and allowed_file(file.filename):
+        ext = file.filename.rsplit(".", 1)[1].lower()
+        unique_name = f"{uuid.uuid4().hex}.{ext}"
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+        file.save(filepath)
+        attachment_path = f"uploads/{unique_name}"
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        if account_id:
+            cur.execute(
+                """
+                UPDATE customer_bank_accounts
+                SET bank_name=?, account_holder_name=?, account_number=?, iban=?, swift_code=?, routing_code=?, notes=?, attachment_path=?
+                WHERE id=? AND LOWER(customer_name)=LOWER(?)
+                """,
+                (bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path, int(account_id), customer_name)
+            )
+            flash("Bank account updated successfully.", "success")
+        else:
+            cur.execute(
+                """
+                INSERT INTO customer_bank_accounts (customer_name, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                """,
+                (customer_name, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path, str(date.today()))
+            )
+            flash("Bank account saved successfully.", "success")
+        conn.commit()
+        database.bump_app_revision()
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error saving bank account: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("customer_dashboard"))
+
+
+@app.route("/customer/bank-accounts/<int:account_id>/delete", methods=["POST"])
+@customer_required
+def customer_bank_accounts_delete(account_id):
+    customer_name = session["customer_name"]
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            UPDATE customer_bank_accounts
+            SET status=0
+            WHERE id=? AND LOWER(customer_name)=LOWER(?)
+            """,
+            (account_id, customer_name)
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Bank account deleted successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error deleting bank account: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("customer_dashboard"))
 
 
 @app.route("/customer/transaction/new", methods=["POST"])
@@ -427,11 +559,16 @@ def customer_transaction_new():
         flash("Please enter either Foreign Amount or Expected EUR.", "error")
         return redirect(url_for("customer_dashboard"))
 
+    bank_account_choice = request.form.get("bank_account_choice", "").strip()
+    bank_account_id = None
+    bank_account_details = None
+    bank_account_attachment = None
+
     conn = db()
     cur = conn.cursor()
 
     try:
-        # Determine exchange rate
+        # 1. Determine exchange rate
         cur.execute("SELECT rate FROM currency_rates WHERE currency_code=? AND rate_date=?", (target_currency, str(date.today())))
         row = cur.fetchone()
         if row:
@@ -450,12 +587,70 @@ def customer_transaction_new():
         pending_eur = eur_expected
         status = "CLOSED" if pending_eur == 0 else "OPEN"
 
+        # 2. Process Bank Details
+        if bank_account_choice:
+            cur.execute(
+                """
+                SELECT id, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path
+                FROM customer_bank_accounts
+                WHERE id=? AND LOWER(customer_name)=LOWER(?) AND status=1
+                """,
+                (int(bank_account_choice), customer_name)
+            )
+            ac_row = cur.fetchone()
+            if ac_row:
+                bank_account_id = ac_row[0]
+                bank_account_details = f"Bank: {ac_row[1]}\nHolder: {ac_row[2]}\nA/C: {ac_row[3]}"
+                if ac_row[4]: bank_account_details += f"\nIBAN: {ac_row[4]}"
+                if ac_row[5]: bank_account_details += f"\nSWIFT: {ac_row[5]}"
+                if ac_row[6]: bank_account_details += f"\nRouting: {ac_row[6]}"
+                if ac_row[7]: bank_account_details += f"\nNotes: {ac_row[7]}"
+                bank_account_attachment = ac_row[8]
+        else:
+            new_bank_name = request.form.get("new_bank_name", "").strip()
+            new_account_holder_name = request.form.get("new_account_holder_name", "").strip()
+            new_account_number = request.form.get("new_account_number", "").strip()
+            new_iban = request.form.get("new_iban", "").strip() or None
+            new_swift_code = request.form.get("new_swift_code", "").strip() or None
+            new_routing_code = request.form.get("new_routing_code", "").strip() or None
+            new_notes = request.form.get("new_notes", "").strip() or None
+
+            if new_bank_name and new_account_holder_name and new_account_number:
+                bank_account_details = f"Bank: {new_bank_name}\nHolder: {new_account_holder_name}\nA/C: {new_account_number}"
+                if new_iban: bank_account_details += f"\nIBAN: {new_iban}"
+                if new_swift_code: bank_account_details += f"\nSWIFT: {new_swift_code}"
+                if new_routing_code: bank_account_details += f"\nRouting: {new_routing_code}"
+                if new_notes: bank_account_details += f"\nNotes: {new_notes}"
+
+                # Handle upload
+                file = request.files.get("new_attachment")
+                if file and file.filename and allowed_file(file.filename):
+                    ext = file.filename.rsplit(".", 1)[1].lower()
+                    unique_name = f"{uuid.uuid4().hex}.{ext}"
+                    filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+                    file.save(filepath)
+                    bank_account_attachment = f"uploads/{unique_name}"
+
+                # Save if user checked "Save this account"
+                save_for_future = request.form.get("save_for_future") == "1"
+                if save_for_future:
+                    cur.execute(
+                        """
+                        INSERT INTO customer_bank_accounts (customer_name, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+                        """,
+                        (customer_name, new_bank_name, new_account_holder_name, new_account_number, new_iban, new_swift_code, new_routing_code, new_notes, bank_account_attachment, str(date.today()))
+                    )
+                    conn.commit()
+
+        # 3. Create Transaction
         cur.execute(
             """
             INSERT INTO transactions (customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                                       eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
-                                      picked_by, notes, transaction_type, received_date)
-            VALUES (?, NULL, NULL, ?, ?, ?, 0.0, ?, ?, ?, ?, 'Customer Portal', ?, 'REGULAR', NULL)
+                                      picked_by, notes, transaction_type, received_date, bank_account_id, 
+                                      bank_account_details, bank_account_attachment)
+            VALUES (?, NULL, NULL, ?, ?, ?, 0.0, ?, ?, ?, ?, 'Customer Portal', ?, 'REGULAR', NULL, ?, ?, ?)
             """,
             (
                 customer_name,
@@ -467,6 +662,9 @@ def customer_transaction_new():
                 status,
                 str(date.today()),
                 notes,
+                bank_account_id,
+                bank_account_details,
+                bank_account_attachment
             ),
         )
         conn.commit()
@@ -479,6 +677,147 @@ def customer_transaction_new():
         conn.close()
 
     return redirect(url_for("customer_dashboard"))
+
+
+
+@app.route("/banker/login", methods=["GET", "POST"])
+def banker_login():
+    if session.get("banker_name"):
+        return redirect(url_for("banker_dashboard"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        conn = db()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT banker_name, password_hash
+            FROM banker_users
+            WHERE username=? AND status=1
+            """,
+            (username,),
+        )
+        user = cur.fetchone()
+        conn.close()
+
+        if user and check_password_hash(user[1], password):
+            session.clear()
+            session["username"] = username
+            session["banker_name"] = user[0]
+            return redirect(url_for("banker_dashboard"))
+
+        flash("Invalid username or password.", "error")
+
+    return render_template("banker_login.html")
+
+
+@app.route("/banker/logout")
+def banker_logout():
+    session.clear()
+    return redirect(url_for("banker_login"))
+
+
+@app.route("/banker/dashboard")
+@banker_required
+def banker_dashboard():
+    banker_name = session["banker_name"]
+    conn = db()
+    cur = conn.cursor()
+
+    # Fetch banker details
+    cur.execute("SELECT phone, bank_name, city, status FROM bankers WHERE LOWER(name)=LOWER(?)", (banker_name,))
+    banker_row = cur.fetchone()
+    banker_details = {}
+    if banker_row:
+        banker_details = dict(phone=banker_row[0], bank_name=banker_row[1], city=banker_row[2], status=banker_row[3])
+
+    # Fetch banker's payments
+    cur.execute("""
+        SELECT id, payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
+        FROM banker_payments 
+        WHERE LOWER(banker_name)=LOWER(?) 
+        ORDER BY payment_date DESC, id DESC
+    """, (banker_name,))
+    payments = [dict(
+        id=r[0], payment_date=r[1], paid_usd=r[2], 
+        total_usd_snapshot=r[3], remaining_usd_snapshot=r[4]
+    ) for r in cur.fetchall()]
+
+    # Fetch banker rates
+    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    rates_raw = cur.fetchall()
+    rates_by_currency = {}
+    for currency, r_date, rate in rates_raw:
+        rates_by_currency.setdefault(currency, []).append((r_date, rate))
+
+    # Fetch transactions
+    cur.execute("SELECT deal_date, target_currency, foreign_amount, customer_name, status, notes, bank_account_details, bank_account_attachment FROM transactions WHERE LOWER(banker_name)=LOWER(?) ORDER BY deal_date DESC, id DESC", (banker_name,))
+    tx_rows = cur.fetchall()
+
+    ledger_txs = []
+    overall_total_usd = 0.0
+    currency_totals = {}
+
+    for deal_date, currency, amount, customer_name, status, notes, ac_details, ac_attachment in tx_rows:
+        c_rates = rates_by_currency.get(currency, [])
+        rate = get_banker_rate(c_rates, currency, deal_date)
+        usd = (amount / rate) if rate else 0.0
+        overall_total_usd += usd
+
+        # Accumulate currency summary
+        curr_sum = currency_totals.setdefault(currency, {"amount": 0.0, "usd": 0.0})
+        curr_sum["amount"] += amount
+        curr_sum["usd"] += usd
+
+        ledger_txs.append(dict(
+            date=deal_date, currency=currency, amount=amount, rate=rate, usd=usd,
+            customer_name=customer_name, status=status, notes=notes,
+            bank_account_details=ac_details, bank_account_attachment=ac_attachment
+        ))
+
+
+    # Calculate overall paid USD
+    cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    overall_paid_usd = cur.fetchone()[0] or 0.0
+    overall_remaining_usd = overall_total_usd - overall_paid_usd
+
+    # Get today's banker currency rates (active rates)
+    # Get active currencies assigned to banker
+    cur.execute("SELECT currency_code FROM banker_currencies WHERE LOWER(banker_name)=LOWER(?) ORDER BY currency_code", (banker_name,))
+    assigned_currencies = [row[0] for row in cur.fetchall()]
+
+    current_rates = {}
+    for code in assigned_currencies:
+        cur.execute("SELECT rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) AND currency_code=? AND rate_date=?", (banker_name, code, str(date.today())))
+        row = cur.fetchone()
+        if row:
+            current_rates[code] = float(row[0])
+        else:
+            cur.execute("SELECT rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) AND currency_code=? ORDER BY rate_date DESC, id DESC LIMIT 1", (banker_name, code))
+            row = cur.fetchone()
+            current_rates[code] = float(row[0]) if row else 1.0
+
+    conn.close()
+
+    summary = {
+        "overall_total_usd": overall_total_usd,
+        "overall_paid_usd": overall_paid_usd,
+        "overall_remaining_usd": overall_remaining_usd,
+        "currency_totals": sorted(currency_totals.items(), key=lambda x: x[0]),
+    }
+
+    return render_template(
+        "banker_dashboard.html",
+        banker_name=banker_name,
+        banker_details=banker_details,
+        current_rates=current_rates,
+        transactions=ledger_txs,
+        payments=payments,
+        summary=summary,
+    )
+
 
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -942,8 +1281,116 @@ def admin_bankers():
     cur = conn.cursor()
     cur.execute("SELECT id, name, phone, bank_name, city, status FROM bankers ORDER BY name")
     bankers = [dict(id=r[0], name=r[1], phone=r[2], bank_name=r[3], city=r[4], status=r[5]) for r in cur.fetchall()]
+    
+    # Fetch banker logins
+    cur.execute(
+        """
+        SELECT id, banker_name, username, status, created_at
+        FROM banker_users
+        ORDER BY banker_name, username
+        """
+    )
+    banker_users = [dict(
+        id=r[0], banker_name=r[1], username=r[2], status=r[3], created_at=r[4]
+    ) for r in cur.fetchall()]
     conn.close()
-    return render_template("admin_bankers.html", active_page="bankers", bankers=bankers)
+    return render_template("admin_bankers.html", active_page="bankers", bankers=bankers, banker_users=banker_users)
+
+
+@app.route("/admin/bankers/create_user", methods=["POST"])
+@admin_required
+def admin_bankers_create_user():
+    banker_name = request.form.get("banker_name", "").strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+
+    if len(username) < 3:
+        flash("Username must be at least 3 characters.", "error")
+        return redirect(url_for("admin_bankers"))
+
+    if len(password) < 6:
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("admin_bankers"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO banker_users (banker_name, username, password_hash, status, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            """,
+            (
+                banker_name,
+                username,
+                generate_password_hash(password),
+                str(date.today()),
+            ),
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Banker web account created successfully.", "success")
+    except Exception:
+        conn.rollback()
+        flash("That username already exists.", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_bankers"))
+
+
+@app.route("/admin/bankers/user/<int:user_id>/status", methods=["POST"])
+@admin_required
+def admin_set_banker_user_status(user_id):
+    status = 1 if request.form.get("status") == "1" else 0
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("UPDATE banker_users SET status=? WHERE id=?", (status, user_id))
+    conn.commit()
+    conn.close()
+    database.bump_app_revision()
+    flash("Banker login status updated.", "success")
+    return redirect(url_for("admin_bankers"))
+
+
+@app.route("/admin/bankers/user/<int:user_id>/password", methods=["POST"])
+@admin_required
+def admin_reset_banker_user_password(user_id):
+    password = request.form.get("password", "")
+    if len(password) < 6:
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("admin_bankers"))
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE banker_users SET password_hash=? WHERE id=?",
+        (generate_password_hash(password), user_id),
+    )
+    conn.commit()
+    conn.close()
+    database.bump_app_revision()
+    flash("Banker password reset successfully.", "success")
+    return redirect(url_for("admin_bankers"))
+
+
+@app.route("/admin/bankers/user/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_banker_user(user_id):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM banker_users WHERE id=?", (user_id,))
+        conn.commit()
+        database.bump_app_revision()
+        flash("Banker login credentials deleted.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error deleting login: {exc}", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin_bankers"))
+
 
 
 @app.route("/admin/bankers/save", methods=["POST"])
@@ -1052,11 +1499,21 @@ def recalculate_banker_payments(cur, banker_name):
 @app.route("/admin/bankers/details/<banker_name>")
 @admin_required
 def admin_banker_details(banker_name):
+    period = request.args.get("period", "").strip() or None
     date_from = request.args.get("date_from", "").strip() or None
     date_to = request.args.get("date_to", "").strip() or None
     
+    if period:
+        resolved_from, resolved_to, period, date_label = resolve_date_filter(period, date_from, date_to)
+        date_from = resolved_from
+        date_to = resolved_to
+        
     conn = db()
     cur = conn.cursor()
+    
+    # Fetch bankers list for dropdown combobox navigation
+    cur.execute("SELECT name FROM bankers ORDER BY name")
+    bankers_list = [dict(name=row[0]) for row in cur.fetchall()]
     
     # Fetch payments
     cur.execute("""
@@ -1135,8 +1592,16 @@ def admin_banker_details(banker_name):
         "currency_totals": sorted(currency_totals.items(), key=lambda x: x[0]),
     }
     
-    filters = {"date_from": date_from or "", "date_to": date_to or ""}
-    return render_template("admin_banker_details.html", active_page="bankers", banker_name=banker_name, ledger=ledger, filters=filters, today=str(date.today()))
+    filters = {"date_from": date_from or "", "date_to": date_to or "", "period": period or ""}
+    return render_template(
+        "admin_banker_details.html", 
+        active_page="bankers", 
+        banker_name=banker_name, 
+        ledger=ledger, 
+        filters=filters, 
+        bankers_list=bankers_list, 
+        today=str(date.today())
+    )
 
 
 @app.route("/admin/bankers/details/<banker_name>/pay", methods=["POST"])
@@ -1187,6 +1652,189 @@ def admin_banker_details_delete_pay(banker_name, payment_id):
     finally:
         conn.close()
     return redirect(url_for("admin_banker_details", banker_name=banker_name))
+
+
+@app.route("/admin/bankers/details/<banker_name>/pdf")
+@admin_required
+def admin_banker_details_pdf(banker_name):
+    date_from = request.args.get("date_from", "").strip() or None
+    date_to = request.args.get("date_to", "").strip() or None
+    period = request.args.get("period", "").strip() or None
+    
+    if period:
+        resolved_from, resolved_to, period, date_label = resolve_date_filter(period, date_from, date_to)
+        date_from = resolved_from
+        date_to = resolved_to
+        
+    conn = db()
+    cur = conn.cursor()
+    
+    # Fetch banker details/info
+    cur.execute("SELECT phone, bank_name, city FROM bankers WHERE name=?", (banker_name,))
+    banker_row = cur.fetchone()
+    banker_info = dict(phone=banker_row[0], bank_name=banker_row[1], city=banker_row[2]) if banker_row else {}
+    
+    # Fetch payments
+    cur.execute("""
+        SELECT payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
+        FROM banker_payments 
+        WHERE LOWER(banker_name)=LOWER(?) 
+        ORDER BY payment_date ASC, id ASC
+    """, (banker_name,))
+    payments = [dict(
+        payment_date=r[0], paid_usd=r[1], 
+        total_usd_snapshot=r[2], remaining_usd_snapshot=r[3]
+    ) for r in cur.fetchall()]
+    
+    # Fetch banker rates
+    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    rates_raw = cur.fetchall()
+    rates_by_currency = {}
+    for currency, r_date, rate in rates_raw:
+        rates_by_currency.setdefault(currency, []).append((r_date, rate))
+        
+    # Fetch transactions (with date filters for display)
+    tx_query = "SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)"
+    tx_params = [banker_name]
+    if date_from:
+        tx_query += " AND deal_date >= ?"
+        tx_params.append(date_from)
+    if date_to:
+        tx_query += " AND deal_date <= ?"
+        tx_params.append(date_to)
+    tx_query += " ORDER BY deal_date ASC"
+    cur.execute(tx_query, tx_params)
+    tx_rows = cur.fetchall()
+    
+    ledger_txs = []
+    filtered_total_usd = 0.0
+    currency_totals = {}
+    
+    for deal_date, currency, amount in tx_rows:
+        c_rates = rates_by_currency.get(currency, [])
+        rate = get_banker_rate(c_rates, currency, deal_date)
+        usd = (amount / rate) if rate else 0.0
+        filtered_total_usd += usd
+        
+        # Accumulate currency summary
+        curr_sum = currency_totals.setdefault(currency, {"amount": 0.0, "usd": 0.0})
+        curr_sum["amount"] += amount
+        curr_sum["usd"] += usd
+        
+        ledger_txs.append(dict(
+            date=deal_date, currency=currency, amount=amount, rate=rate, usd=usd
+        ))
+        
+    # Calculate overall total expected USD (ignoring filters)
+    cur.execute("SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    all_txs = cur.fetchall()
+    overall_total_usd = 0.0
+    for deal_date, currency, amount in all_txs:
+        c_rates = rates_by_currency.get(currency, [])
+        rate = get_banker_rate(c_rates, currency, deal_date)
+        overall_total_usd += (amount / rate) if rate else 0.0
+        
+    # Calculate overall paid USD
+    cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    overall_paid_usd = cur.fetchone()[0] or 0.0
+    overall_remaining_usd = overall_total_usd - overall_paid_usd
+    
+    conn.close()
+    
+    # Generate PDF in memory buffer
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter),
+                            rightMargin=0.35 * inch, leftMargin=0.35 * inch,
+                            topMargin=0.35 * inch, bottomMargin=0.35 * inch)
+    story = []
+    stylesheet = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle("BankerPdfTitle", parent=stylesheet["Title"], fontSize=18, spaceAfter=4)
+    subtitle_style = ParagraphStyle("BankerPdfSubtitle", parent=stylesheet["Normal"], fontSize=9, textColor=colors.HexColor("#475569"), spaceAfter=12)
+    section_style = ParagraphStyle("BankerPdfSection", parent=stylesheet["Heading2"], fontSize=12, textColor=colors.HexColor("#1e293b"), spaceBefore=12, spaceAfter=6)
+    
+    story.append(Paragraph(f"Banker Statement: {banker_name}", title_style))
+    info_text = f"Bank: {banker_info.get('bank_name') or 'N/A'} | City: {banker_info.get('city') or 'N/A'} | Phone: {banker_info.get('phone') or 'N/A'}"
+    story.append(Paragraph(info_text, subtitle_style))
+    
+    # Summary Totals Card
+    summary_data = [
+        ["Overall Expected USD", "Overall Paid USD", "Overall Remaining Balance"],
+        [f"${overall_total_usd:,.2f}", f"${overall_paid_usd:,.2f}", f"${overall_remaining_usd:,.2f}"]
+    ]
+    summary_table = Table(summary_data, colWidths=[2.5 * inch, 2.5 * inch, 2.5 * inch])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f1f5f9")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#475569")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("BACKGROUND", (0, 1), (-1, 1), colors.white),
+        ("TEXTCOLOR", (1, 1), (1, 1), colors.HexColor("#10b981")),
+        ("TEXTCOLOR", (2, 1), (2, 1), colors.HexColor("#e11d48")),
+        ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 0.15 * inch))
+    
+    # Ledger Transactions section
+    story.append(Paragraph("Transactions Ledger", section_style))
+    tx_headers = ["Date", "Currency", "Amount Sent", "Rate", "USD Value"]
+    tx_rows_data = [tx_headers]
+    for tx in ledger_txs:
+        tx_rows_data.append([
+            tx["date"], tx["currency"], f"{tx['amount']:,.2f}", 
+            f"{tx['rate']:.4f}" if tx["rate"] else "N/A", f"${tx['usd']:,.2f}"
+        ])
+    tx_rows_data.append(["Total USD Value", "", "", "", f"${filtered_total_usd:,.2f}"])
+    
+    tx_table = Table(tx_rows_data, colWidths=[1.5 * inch, 1.2 * inch, 1.8 * inch, 1.2 * inch, 1.8 * inch])
+    tx_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#f8fafc")]),
+        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#e2e8f0")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+    ]))
+    story.append(tx_table)
+    story.append(Spacer(1, 0.15 * inch))
+    
+    # Payments history section
+    story.append(Paragraph("Payments History", section_style))
+    pay_headers = ["Date", "Paid USD", "Total USD", "Remaining"]
+    pay_rows_data = [pay_headers]
+    for p in payments:
+        pay_rows_data.append([
+            p["payment_date"], f"${p['paid_usd']:,.2f}", 
+            f"${p['total_usd_snapshot']:,.2f}", f"${p['remaining_usd_snapshot']:,.2f}"
+        ])
+    if not payments:
+        pay_rows_data.append(["No payments recorded.", "", "", ""])
+        
+    pay_table = Table(pay_rows_data, colWidths=[1.8 * inch, 1.8 * inch, 1.8 * inch, 1.8 * inch])
+    pay_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#8d6e63")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+    ]))
+    story.append(pay_table)
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    filename = f"banker_{banker_name.lower().replace(' ', '_')}_ledger.pdf"
+    return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
 
 
 # CURRENCY & RATES PANEL

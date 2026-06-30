@@ -2,7 +2,7 @@
 {% block page_title %}Bankers Directory{% endblock %}
 {% block content %}
 
-<div class="stats-grid" style="grid-template-columns: 1fr 1.5fr;">
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
   <!-- Banker Directory Form -->
   <div class="card">
     <h3 id="banker-title">➕ Add Banker</h3>
@@ -44,6 +44,37 @@
     </form>
   </div>
 
+  <!-- Create Banker Web Credentials -->
+  <div class="card">
+    <h3>🔑 Create Banker Login Credentials</h3>
+    <form method="POST" action="{{ url_for('admin_bankers_create_user') }}" class="grid-form" style="grid-template-columns: 1fr;">
+      <label>
+        Select Banker
+        <select name="banker_name" required>
+          <option value="">Choose banker...</option>
+          {% for b in bankers %}
+            {% if b.status == 1 %}
+              <option value="{{ b.name }}">{{ b.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Username
+        <input name="username" autocomplete="off" required placeholder="Pick a username">
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="new-password" required placeholder="Set password">
+      </label>
+      <div class="grid-buttons">
+        <button type="submit" class="btn btn-success">Create Login</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: 1.2fr 1fr;">
   <!-- Bankers Directory List -->
   <div class="card">
     <h3>🏦 Registered Bankers</h3>
@@ -73,24 +104,85 @@
                   {% endif %}
                 </td>
                 <td style="text-align: right;">
-                  <a href="{{ url_for('admin_banker_details', banker_name=b.name) }}" class="btn btn-warning" style="padding: 4px 8px; font-size: 12px; color: #fff;">Ledger & Payments</a>
-                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editBanker({{ {
-                    'id': b.id,
-                    'name': b.name,
-                    'phone': b.phone or '',
-                    'bank_name': b.bank_name or '',
-                    'city': b.city or '',
-                    'status': b.status
-                  } | tojson }})">Edit</button>
-                  <form action="{{ url_for('admin_bankers_delete', banker_id=b.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this banker profile?');">
-                    <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Delete</button>
-                  </form>
+                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                    <a href="{{ url_for('admin_banker_details', banker_name=b.name) }}" class="btn btn-warning" style="padding: 4px 8px; font-size: 12px; color: #fff; width: 110px; text-align: center; text-decoration: none;">Ledger & Payments</a>
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; width: 110px;" onclick="editBanker({{ {
+                      'id': b.id,
+                      'name': b.name,
+                      'phone': b.phone or '',
+                      'bank_name': b.bank_name or '',
+                      'city': b.city or '',
+                      'status': b.status
+                    } | tojson }})">Edit Profile</button>
+                    <form action="{{ url_for('admin_bankers_delete', banker_id=b.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this banker profile?');">
+                      <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; width: 110px;">Delete Profile</button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             {% endfor %}
           {% else %}
             <tr>
               <td colspan="5" style="text-align: center; color: var(--muted);">No bankers created yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Banker Web Logins List -->
+  <div class="card">
+    <h3>🔑 Active Banker Logins</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Banker / Username</th>
+            <th>Status</th>
+            <th style="text-align: right;">Credentials Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if banker_users %}
+            {% for u in banker_users %}
+              <tr>
+                <td>
+                  <strong>{{ u.banker_name }}</strong>
+                  <div style="font-size: 12px; color: var(--muted);">Username: {{ u.username }}</div>
+                </td>
+                <td>
+                  <span class="badge {% if u.status %}badge-closed{% else %}badge-pending{% endif %}">
+                    {{ 'Enabled' if u.status else 'Disabled' }}
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                    <form method="POST" action="{{ url_for('admin_set_banker_user_status', user_id=u.id) }}">
+                      {% if u.status %}
+                        <input type="hidden" name="status" value="0">
+                        <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Disable</button>
+                      {% else %}
+                        <input type="hidden" name="status" value="1">
+                        <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Enable</button>
+                      {% endif %}
+                    </form>
+                    
+                    <form method="POST" action="{{ url_for('admin_reset_banker_user_password', user_id=u.id) }}" class="reset-form" style="display: flex; gap: 4px; margin-top: 4px;">
+                      <input name="password" type="password" placeholder="New pass" required style="padding: 4px 8px; font-size: 11px; width: 90px; height: 26px;">
+                      <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; height: 26px;" type="submit">Reset</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('admin_delete_banker_user', user_id=u.id) }}" onsubmit="return confirm('Delete login credentials?');" style="margin-top: 4px;">
+                      <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px; height: 26px;" type="submit">Delete Login</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--muted);">No login accounts created yet.</td>
             </tr>
           {% endif %}
         </tbody>

@@ -429,6 +429,37 @@ def create_tables():
     """)
 
     cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS banker_users (
+        id {id_type},
+        banker_name TEXT NOT NULL,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        status INTEGER DEFAULT 1,
+        created_at TEXT
+    )
+    """)
+
+
+    cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS customer_bank_accounts (
+        id {id_type},
+        customer_name TEXT NOT NULL,
+        bank_name TEXT NOT NULL,
+        account_holder_name TEXT NOT NULL,
+        account_number TEXT NOT NULL,
+        iban TEXT,
+        swift_code TEXT,
+        routing_code TEXT,
+        notes TEXT,
+        attachment_path TEXT,
+        status INTEGER DEFAULT 1,
+        created_at TEXT
+    )
+    """)
+
+
+
+    cur.execute(f"""
     CREATE TABLE IF NOT EXISTS transactions (
         id {id_type},
         customer_name TEXT NOT NULL,
@@ -461,6 +492,16 @@ def create_tables():
             ADD COLUMN transaction_type TEXT NOT NULL DEFAULT 'REGULAR'
             """
         )
+
+    if not _column_exists(cur, "transactions", "bank_account_id"):
+        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_id INTEGER")
+
+    if not _column_exists(cur, "transactions", "bank_account_details"):
+        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_details TEXT")
+
+    if not _column_exists(cur, "transactions", "bank_account_attachment"):
+        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_attachment TEXT")
+
 
     if not _column_exists(cur, "banker_payments", "total_usd_snapshot"):
         cur.execute("ALTER TABLE banker_payments ADD COLUMN total_usd_snapshot REAL DEFAULT 0")
@@ -567,6 +608,19 @@ def create_tables():
     CREATE INDEX IF NOT EXISTS idx_collector_users_collector
     ON collector_users(collector_name)
     """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_banker_users_banker
+    ON banker_users(banker_name)
+    """)
+
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_customer_bank_accounts_customer
+    ON customer_bank_accounts(customer_name)
+    """)
+
+
 
     cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_banker_payments_name_date_id

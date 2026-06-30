@@ -1,0 +1,224 @@
+{% extends "banker_base.html" %}
+{% block page_title %}Banker Dashboard{% endblock %}
+{% block content %}
+
+<!-- Metrics grid -->
+<div class="stats-grid">
+  <div class="stat-box">
+    <span>Total Expected (USD)</span>
+    <h3>${{ (summary.overall_total_usd or 0) | money }}</h3>
+  </div>
+  <div class="stat-box success">
+    <span>Total Paid (USD)</span>
+    <h3>${{ (summary.overall_paid_usd or 0) | money }}</h3>
+  </div>
+  <div class="stat-box {% if summary.overall_remaining_usd > 0 %}danger{% else %}success{% endif %}">
+    <span>Remaining Balance (USD)</span>
+    <h3>${{ (summary.overall_remaining_usd or 0) | money }}</h3>
+  </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; align-items: start; margin-top: 24px;">
+  <!-- Banker Profile Card -->
+  <div class="card">
+    <h3>🏦 Banker Information</h3>
+    <table class="detail-table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+      <tr>
+        <td style="padding: 8px 0; font-weight: 600; color: var(--text-secondary);">Bank Name:</td>
+        <td style="padding: 8px 0; text-align: right;">{{ banker_details.bank_name or '—' }}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: 600; color: var(--text-secondary);">Phone Number:</td>
+        <td style="padding: 8px 0; text-align: right;">{{ banker_details.phone or '—' }}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: 600; color: var(--text-secondary);">City:</td>
+        <td style="padding: 8px 0; text-align: right;">{{ banker_details.city or '—' }}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-weight: 600; color: var(--text-secondary);">Portal Status:</td>
+        <td style="padding: 8px 0; text-align: right;">
+          {% if banker_details.status == 1 %}
+            <span class="badge badge-closed">Active</span>
+          {% else %}
+            <span class="badge badge-pending">Inactive</span>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Currency Rates Card -->
+  <div class="card">
+    <h3>📈 Your Exchange Rates</h3>
+    <div class="table-container" style="max-height: 220px; overflow-y: auto;">
+      <table style="width: 100%;">
+        <thead>
+          <tr>
+            <th>Currency</th>
+            <th style="text-align: right;">Rate (Foreign Units per $1)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if current_rates %}
+            {% for code, rate in current_rates.items() %}
+              <tr>
+                <td><span class="badge badge-open" style="font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">{{ code }}</span></td>
+                <td style="text-align: right; font-weight: 600;">{{ rate }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="2" style="text-align: center; color: var(--muted); padding: 12px 0;">No currencies assigned yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Section: Transactions & Payments lists -->
+<div class="stats-grid" style="grid-template-columns: 1.6fr 0.9fr; align-items: start; margin-top: 24px;">
+  <!-- Associated Transactions -->
+  <div class="card">
+    <h3>💼 Associated Transactions</h3>
+    <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Client</th>
+            <th>Sent Currency</th>
+            <th>Rate Used</th>
+            <th style="text-align: right;">Foreign Amount</th>
+            <th style="text-align: right;">USD Equivalent</th>
+            <th>Receiving Account</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if transactions %}
+            {% for tx in transactions %}
+              <tr>
+                <td>{{ tx.date }}</td>
+                <td><strong>{{ tx.customer_name }}</strong></td>
+                <td><span class="badge badge-open">{{ tx.currency }}</span></td>
+                <td>{{ tx.rate or '—' }}</td>
+                <td style="text-align: right; font-weight: 600;">{{ tx.amount | money }}</td>
+                <td style="text-align: right; font-weight: 600; color: var(--brand);">${{ tx.usd | money }}</td>
+                <td>
+                  {% if tx.bank_account_details %}
+                    <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
+                  {% else %}
+                    <span style="color: var(--muted); font-size: 12px;">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge {% if tx.status == 'CLOSED' %}badge-closed{% else %}badge-pending{% endif %}">
+                    {{ tx.status }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--muted); padding: 20px 0;">No transactions assigned.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent Payments -->
+  <div class="card">
+    <h3>💸 Payment History</h3>
+    <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th style="text-align: right;">Amount Paid</th>
+            <th style="text-align: right;">Snapshot Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if payments %}
+            {% for p in payments %}
+              <tr>
+                <td>{{ p.payment_date }}</td>
+                <td style="text-align: right; font-weight: 600; color: var(--success-dark);">${{ p.paid_usd | money }}</td>
+                <td style="text-align: right; font-weight: 500; color: var(--muted); font-size: 13px;">${{ p.remaining_usd_snapshot | money }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="3" style="text-align: center; color: var(--muted); padding: 20px 0;">No payments recorded yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for displaying Bank Details -->
+<div id="bank-details-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center;">
+  <div class="card" style="background-color: #fff; margin: auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); position: relative;">
+    <span onclick="closeBankModal()" style="position: absolute; right: 15px; top: 10px; font-size: 24px; font-weight: bold; cursor: pointer; color: var(--muted);">&times;</span>
+    <h3 style="margin-top: 0; color: var(--brand); display: flex; align-items: center; gap: 8px;">🏦 Receiving Bank Details</h3>
+    <hr style="border: 0; border-top: 1px solid var(--border); margin: 12px 0;">
+    <div id="bank-modal-content" style="white-space: pre-line; font-family: monospace; font-size: 14px; background: rgba(0,0,0,0.02); padding: 15px; border-radius: 6px; border: 1px solid var(--border); line-height: 1.6; text-align: left;">
+    </div>
+    <div id="bank-modal-attachment" style="margin-top: 15px; text-align: center;">
+    </div>
+    <div style="margin-top: 20px; text-align: right;">
+      <button class="btn btn-secondary" onclick="closeBankModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openBankModal(details, attachmentUrl) {
+  document.getElementById('bank-modal-content').innerText = details;
+  const attachmentDiv = document.getElementById('bank-modal-attachment');
+  attachmentDiv.innerHTML = '';
+  
+  if (attachmentUrl && attachmentUrl !== 'None' && attachmentUrl !== '') {
+    const isImage = /\.(jpg|jpeg|png|gif)$/i.test(attachmentUrl);
+    const fullUrl = '/static/' + attachmentUrl;
+    
+    if (isImage) {
+      attachmentDiv.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">Proof Attachment:</div>
+        <a href="${fullUrl}" target="_blank">
+          <img src="${fullUrl}" style="max-width: 100%; max-height: 200px; border-radius: 4px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        </a>
+        <div style="margin-top: 6px; font-size: 12px; color: var(--muted);">Click image to expand</div>
+      `;
+    } else {
+      attachmentDiv.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--text-secondary);">Proof Attachment:</div>
+        <a href="${fullUrl}" target="_blank" class="badge badge-open" style="font-size: 13px; padding: 6px 12px; text-decoration: none;">📎 Download PDF / Document</a>
+      `;
+    }
+  }
+  
+  const modal = document.getElementById('bank-details-modal');
+  modal.style.display = 'flex';
+}
+
+function closeBankModal() {
+  document.getElementById('bank-details-modal').style.display = 'none';
+}
+
+// Close when clicking outside of the modal
+window.onclick = function(event) {
+  const modal = document.getElementById('bank-details-modal');
+  if (event.target === modal) {
+    modal.style.display = 'none';
+  }
+}
+</script>
+{% endblock %}

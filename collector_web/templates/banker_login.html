@@ -4,7 +4,7 @@
 <main class="login-shell">
   <section class="login-panel" style="border-top: 4px solid var(--brand);">
     <p class="eyebrow">🌌 SKY EXCHANGE</p>
-    <h1>Customer Portal</h1>
+    <h1>Banker Portal</h1>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -26,15 +26,11 @@
       <button type="submit" style="background: var(--brand); color: #fff;">Sign In</button>
     </form>
     
-    <p style="text-align: center; margin-top: 12px; font-size: 13px;">
-      Don't have an account? <a href="{{ url_for('customer_register') }}" style="color: var(--brand); text-decoration: none; font-weight: 600;">Sign up here</a>
-    </p>
-    
     <div style="margin-top: 20px; text-align: center; font-size: 13px;">
-      <p style="color: var(--muted); margin-bottom: 8px;">Are you a collector, banker, or admin?</p>
-      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Collector Access</a>
-      <a href="{{ url_for('banker_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Banker Access</a>
-      <a href="{{ url_for('admin_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Admin Access</a>
+      <p style="color: var(--muted); margin-bottom: 8px;">Switch Portal Access</p>
+      <a href="{{ url_for('customer_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Customer Access</a>
+      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Collector Access</a>
+      <a href="{{ url_for('admin_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none;">Admin Access</a>
     </div>
   </section>
 </main>
