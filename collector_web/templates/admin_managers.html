@@ -1,0 +1,140 @@
+{% extends "admin_base.html" %}
+{% block page_title %}Manager Admins Directory{% endblock %}
+{% block content %}
+
+<div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 24px;">
+  <!-- Manager Accounts Form -->
+  <div class="card">
+    <h3 id="manager-title">➕ Add Manager Admin</h3>
+    <form action="{{ url_for('admin_managers_save') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
+      <input type="hidden" id="manager-id" name="id" value="">
+      
+      <label>
+        Username
+        <input type="text" id="manager-username" name="username" placeholder="Pick a username" required autocomplete="off">
+      </label>
+      
+      <label>
+        Password
+        <input type="password" id="manager-password" name="password" placeholder="Set password (leave empty to keep unchanged for edit)" autocomplete="new-password">
+        <span id="password-hint" style="font-size: 11px; color: var(--muted); display: block; margin-top: 2px;"></span>
+      </label>
+      
+      <label>
+        Status
+        <select id="manager-status" name="status">
+          <option value="1">Active / Enabled</option>
+          <option value="0">Inactive / Disabled</option>
+        </select>
+      </label>
+      
+      <div class="grid-buttons">
+        <button type="submit" class="btn btn-success">Save Account</button>
+        <button type="button" class="btn btn-secondary" onclick="clearManagerForm()">Clear</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Helpful Info card -->
+  <div class="card" style="background: rgba(var(--brand-rgb), 0.02); border: 1px dashed var(--border);">
+    <h3 style="color: var(--brand);">👑 About Manager Admins</h3>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 12px;">
+      Manager Admins have **full read and write access** to the system (same as the default Super Admin). They can manage transactions, customers, bankers, collectors, rates, and reports.
+    </p>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin-bottom: 12px;">
+      However, they **cannot** access the Manager Admin management page or view the system action logs. Those pages are restricted to the default Super Admin only.
+    </p>
+    <p style="font-size: 14px; line-height: 1.6; color: var(--text-secondary);">
+      Every action they perform (editing rates, deleting transactions, etc.) is recorded in the **Audit Logs** along with their specific username and IP address.
+    </p>
+  </div>
+</div>
+
+<!-- Managers Logins List -->
+<div class="card">
+  <h3>🔑 Registered Manager Logins</h3>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Created Date</th>
+          <th>Status</th>
+          <th style="text-align: right;">Credentials Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if managers %}
+          {% for m in managers %}
+            <tr>
+              <td>
+                <strong>{{ m.username }}</strong>
+              </td>
+              <td>{{ m.created_at or 'N/A' }}</td>
+              <td>
+                <span class="badge {% if m.status %}badge-closed{% else %}badge-pending{% endif %}">
+                  {{ 'Enabled' if m.status else 'Disabled' }}
+                </span>
+              </td>
+              <td style="text-align: right;">
+                <div style="display: flex; gap: 4px; justify-content: flex-end; align-items: center;">
+                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editManager({{ {
+                    'id': m.id,
+                    'username': m.username,
+                    'status': m.status
+                  } | tojson }})">Edit Username</button>
+                  
+                  <form method="POST" action="{{ url_for('admin_managers_status', manager_id=m.id) }}" style="display:inline;">
+                    {% if m.status %}
+                      <input type="hidden" name="status" value="0">
+                      <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Disable</button>
+                    {% else %}
+                      <input type="hidden" name="status" value="1">
+                      <button class="btn btn-success" style="padding: 4px 8px; font-size: 12px; width: 80px;" type="submit">Enable</button>
+                    {% endif %}
+                  </form>
+                  
+                  <form method="POST" action="{{ url_for('admin_managers_password', manager_id=m.id) }}" class="reset-form" style="display: flex; gap: 4px; display: inline-flex;">
+                    <input name="password" type="password" placeholder="New pass" required style="padding: 4px 8px; font-size: 11px; width: 90px; height: 26px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); color: var(--text-primary);">
+                    <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px; height: 26px;" type="submit">Reset</button>
+                  </form>
+
+                  <form method="POST" action="{{ url_for('admin_managers_delete', manager_id=m.id) }}" onsubmit="return confirm('Delete this manager account login?');" style="display:inline;">
+                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4" style="text-align: center; color: var(--muted); padding: 16px;">No manager login accounts created yet.</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function editManager(m) {
+  document.getElementById('manager-title').innerText = '✏️ Edit Manager: ' + m.username;
+  document.getElementById('manager-id').value = m.id;
+  document.getElementById('manager-username').value = m.username;
+  document.getElementById('manager-status').value = m.status;
+  document.getElementById('manager-password').removeAttribute('required');
+  document.getElementById('password-hint').innerText = 'Leave blank to keep current password';
+}
+
+function clearManagerForm() {
+  document.getElementById('manager-title').innerText = '➕ Add Manager Admin';
+  document.getElementById('manager-id').value = '';
+  document.getElementById('manager-username').value = '';
+  document.getElementById('manager-password').value = '';
+  document.getElementById('manager-status').value = '1';
+  document.getElementById('manager-password').setAttribute('required', '');
+  document.getElementById('password-hint').innerText = '';
+}
+</script>
+
+{% endblock %}

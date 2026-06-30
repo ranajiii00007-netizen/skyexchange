@@ -2,7 +2,7 @@ import os
 import sys
 import io
 import csv
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from functools import wraps
 
 from flask import (
@@ -107,11 +107,47 @@ def login_required(view_func):
     return wrapper
 
 
+def log_admin_action(action, details=""):
+    admin_username = session.get("admin_username", "Unknown Admin")
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO admin_logs (admin_username, action, details, ip_address, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                admin_username,
+                action,
+                details,
+                request.remote_addr or "N/A",
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+        )
+        conn.commit()
+    except Exception as exc:
+        print(f"Error logging admin action: {exc}")
+    finally:
+        conn.close()
+
+
 def admin_required(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
         if not session.get("is_admin"):
             return redirect(url_for("admin_login"))
+        return view_func(*args, **kwargs)
+
+    return wrapper
+
+
+def super_admin_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("is_admin") or session.get("admin_role") != "SUPER":
+            flash("This page is restricted to Super Admin only.", "error")
+            return redirect(url_for("admin_dashboard"))
         return view_func(*args, **kwargs)
 
     return wrapper
@@ -840,13 +876,47 @@ def admin_login():
         return redirect(url_for("admin_dashboard"))
 
     if request.method == "POST":
-        password = request.form.get("password", "").strip()
-        if password == get_admin_password():
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        is_super = False
+        is_manager = False
+
+        if username.lower() in ("admin", "super_admin", "superadmin", ""):
+            if password == get_admin_password():
+                is_super = True
+                username = "super_admin"
+        else:
+            conn = db()
+            cur = conn.cursor()
+            try:
+                cur.execute(
+                    """
+                    SELECT id, password_hash, status
+                    FROM manager_admins
+                    WHERE LOWER(username)=LOWER(?) AND status=1
+                    """,
+                    (username,),
+                )
+                row = cur.fetchone()
+                if row and check_password_hash(row[1], password):
+                    is_manager = True
+            except Exception as exc:
+                print(f"Error checking manager admin login: {exc}")
+            finally:
+                conn.close()
+
+        if is_super or is_manager:
             session.clear()
             session["is_admin"] = True
+            session["admin_role"] = "SUPER" if is_super else "MANAGER"
+            session["admin_username"] = username
+            
+            # Log action
+            log_admin_action("LOGIN", f"Admin login successful as {session['admin_role']}")
             return redirect(url_for("admin_dashboard"))
 
-        flash("Invalid admin password.", "error")
+        flash("Invalid admin username or password.", "error")
 
     return render_template("admin_login.html")
 
@@ -983,6 +1053,7 @@ def admin_customers_save():
                 """,
                 (name, phone, phone2, phone3, address, reference, country, status, int(cust_id))
             )
+            log_admin_action("UPDATE_CUSTOMER", f"Updated customer: {name} (ID: {cust_id})")
             flash("Customer updated successfully.", "success")
         else:
             cur.execute(
@@ -992,6 +1063,7 @@ def admin_customers_save():
                 """,
                 (name, phone, phone2, phone3, address, reference, country, status, str(date.today()))
             )
+            log_admin_action("CREATE_CUSTOMER", f"Created customer: {name}")
             flash("Customer created successfully.", "success")
         conn.commit()
         database.bump_app_revision()
@@ -1013,6 +1085,7 @@ def admin_customers_delete(customer_id):
         cur.execute("DELETE FROM customers WHERE id=?", (customer_id,))
         conn.commit()
         database.bump_app_revision()
+        log_admin_action("DELETE_CUSTOMER", f"Deleted customer profile (ID: {customer_id})")
         flash("Customer profile deleted.", "success")
     except Exception as exc:
         conn.rollback()
@@ -1054,6 +1127,7 @@ def admin_customers_create_user():
         )
         conn.commit()
         database.bump_app_revision()
+        log_admin_action("CREATE_CUSTOMER_USER", f"Created customer web login: {username} for {customer_name}")
         flash("Customer web account created successfully.", "success")
     except Exception:
         conn.rollback()
@@ -2196,6 +2270,190 @@ def admin_transactions_delete(transaction_id):
     finally:
         conn.close()
     return redirect(url_for("admin_transactions"))
+
+
+# ==============================================================================
+# MANAGER ADMINS CRUD
+# ==============================================================================
+
+@app.route("/admin/managers")
+@admin_required
+@super_admin_required
+def admin_managers():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, status, created_at FROM manager_admins ORDER BY id DESC")
+    managers = [dict(id=row[0], username=row[1], status=row[2], created_at=row[3]) for row in cur.fetchall()]
+    conn.close()
+    return render_template("admin_managers.html", managers=managers, active_page="managers")
+
+
+@app.route("/admin/managers/save", methods=["POST"])
+@admin_required
+@super_admin_required
+def admin_managers_save():
+    manager_id = request.form.get("id", "").strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "")
+    status = int(request.form.get("status", "1"))
+
+    if not username:
+        flash("Username is required.", "error")
+        return redirect(url_for("admin_managers"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        if manager_id:
+            # Edit existing manager
+            if password:
+                # Update password
+                hashed = generate_password_hash(password)
+                cur.execute(
+                    """
+                    UPDATE manager_admins
+                    SET username=?, password_hash=?, status=?
+                    WHERE id=?
+                    """,
+                    (username, hashed, status, int(manager_id)),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE manager_admins
+                    SET username=?, status=?
+                    WHERE id=?
+                    """,
+                    (username, status, int(manager_id)),
+                )
+            log_admin_action("UPDATE_MANAGER", f"Updated manager: {username} (ID: {manager_id})")
+            flash("Manager Admin updated successfully.", "success")
+        else:
+            # Create new manager
+            if not password:
+                flash("Password is required for new manager.", "error")
+                return redirect(url_for("admin_managers"))
+            hashed = generate_password_hash(password)
+            cur.execute(
+                """
+                INSERT INTO manager_admins (username, password_hash, status, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (username, hashed, status, str(date.today())),
+            )
+            log_admin_action("CREATE_MANAGER", f"Created manager: {username}")
+            flash("Manager Admin created successfully.", "success")
+        conn.commit()
+        database.bump_app_revision()
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error saving manager admin: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_managers"))
+
+
+@app.route("/admin/managers/<int:manager_id>/status", methods=["POST"])
+@admin_required
+@super_admin_required
+def admin_managers_status(manager_id):
+    status = int(request.form.get("status", "1"))
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT username FROM manager_admins WHERE id=?", (manager_id,))
+        row = cur.fetchone()
+        username = row[0] if row else "Unknown"
+
+        cur.execute("UPDATE manager_admins SET status=? WHERE id=?", (status, manager_id))
+        conn.commit()
+        database.bump_app_revision()
+        
+        status_text = "enabled" if status == 1 else "disabled"
+        log_admin_action("TOGGLE_MANAGER_STATUS", f"Set manager {username} status to {status_text}")
+        flash(f"Manager login {status_text}.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error updating status: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_managers"))
+
+
+@app.route("/admin/managers/<int:manager_id>/password", methods=["POST"])
+@admin_required
+@super_admin_required
+def admin_managers_password(manager_id):
+    password = request.form.get("password", "").strip()
+    if not password:
+        flash("Password cannot be empty.", "error")
+        return redirect(url_for("admin_managers"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT username FROM manager_admins WHERE id=?", (manager_id,))
+        row = cur.fetchone()
+        username = row[0] if row else "Unknown"
+
+        hashed = generate_password_hash(password)
+        cur.execute("UPDATE manager_admins SET password_hash=? WHERE id=?", (hashed, manager_id))
+        conn.commit()
+        database.bump_app_revision()
+        
+        log_admin_action("RESET_MANAGER_PASSWORD", f"Reset password for manager: {username}")
+        flash("Manager password reset successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error resetting password: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_managers"))
+
+
+@app.route("/admin/managers/<int:manager_id>/delete", methods=["POST"])
+@admin_required
+@super_admin_required
+def admin_managers_delete(manager_id):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT username FROM manager_admins WHERE id=?", (manager_id,))
+        row = cur.fetchone()
+        username = row[0] if row else "Unknown"
+
+        cur.execute("DELETE FROM manager_admins WHERE id=?", (manager_id,))
+        conn.commit()
+        database.bump_app_revision()
+        
+        log_admin_action("DELETE_MANAGER", f"Deleted manager: {username}")
+        flash("Manager credentials deleted successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error deleting credentials: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("admin_managers"))
+
+
+# ==============================================================================
+# AUDIT LOGS VIEWER
+# ==============================================================================
+
+@app.route("/admin/logs")
+@admin_required
+@super_admin_required
+def admin_logs():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, admin_username, action, details, ip_address, created_at FROM admin_logs ORDER BY id DESC LIMIT 1000")
+    logs = [dict(id=row[0], username=row[1], action=row[2], details=row[3], ip_address=row[4], created_at=row[5]) for row in cur.fetchall()]
+    conn.close()
+    return render_template("admin_logs.html", logs=logs, active_page="logs")
 
 
 # REPORTS VIEWS & EXPORTS

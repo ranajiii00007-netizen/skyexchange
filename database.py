@@ -662,6 +662,32 @@ def create_tables():
     ON transactions(status, deal_date, id)
     """)
 
+    cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS manager_admins (
+        id {id_type},
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        status INTEGER DEFAULT 1,
+        created_at TEXT
+    )
+    """)
+
+    cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS admin_logs (
+        id {id_type},
+        admin_username TEXT NOT NULL,
+        action TEXT NOT NULL,
+        details TEXT,
+        ip_address TEXT,
+        created_at TEXT
+    )
+    """)
+
+    cur.execute("""
+    CREATE INDEX IF NOT EXISTS idx_manager_admins_username
+    ON manager_admins(username)
+    """)
+
     conn.commit()
     conn.close()
 

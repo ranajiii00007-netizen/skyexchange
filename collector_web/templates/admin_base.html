@@ -41,6 +41,14 @@
         <li class="sidebar-item {% if active_page == 'reports' %}active{% endif %}">
           <a href="{{ url_for('admin_reports') }}">📄 Reports</a>
         </li>
+        {% if session.get('admin_role') == 'SUPER' %}
+        <li class="sidebar-item {% if active_page == 'managers' %}active{% endif %}">
+          <a href="{{ url_for('admin_managers') }}">👑 Managers</a>
+        </li>
+        <li class="sidebar-item {% if active_page == 'logs' %}active{% endif %}">
+          <a href="{{ url_for('admin_logs') }}">📋 Audit Logs</a>
+        </li>
+        {% endif %}
       </ul>
       <div class="sidebar-footer">
         <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">🛵 Collector view</a>
