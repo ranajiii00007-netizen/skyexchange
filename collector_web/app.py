@@ -15,6 +15,7 @@ from flask import (
     session,
     url_for,
     send_file,
+    send_from_directory,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -37,16 +38,29 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("COLLECTOR_WEB_SECRET", "change-this-secret")
 
 # File Upload Settings
-UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, "collector_web", "static", "uploads")
+is_vercel_env = bool(os.environ.get("VERCEL"))
+if is_vercel_env:
+    UPLOAD_FOLDER = "/tmp"
+else:
+    UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, "collector_web", "static", "uploads")
+
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB limit
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 
 # Make sure folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+if not is_vercel_env:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/static/uploads/<path:filename>")
+def custom_static_uploads(filename):
+    if is_vercel_env:
+        return send_from_directory("/tmp", filename)
+    else:
+        return send_from_directory(os.path.join(app.static_folder, "uploads"), filename)
 
 _DATABASE_READY = False
 
