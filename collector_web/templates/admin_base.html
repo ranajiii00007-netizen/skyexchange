@@ -98,14 +98,9 @@
       const query = inputElement.value.trim().toLowerCase();
       dropdown.innerHTML = '';
       
-      if (!query) {
-        dropdown.style.display = 'none';
-        highlightedIndex = -1;
-        return;
-      }
-
-      const keywords = query.split(/\s+/);
+      const keywords = query ? query.split(/\s+/) : [];
       const matches = itemsList.filter(item => {
+        if (keywords.length === 0) return true;
         const lowerItem = item.toLowerCase();
         return keywords.every(kw => lowerItem.includes(kw));
       });
@@ -121,12 +116,14 @@
         div.className = 'autocomplete-item';
         
         let html = item;
-        keywords.forEach(kw => {
-          if (kw) {
-            const regex = new RegExp(`(${kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
-            html = html.replace(regex, '<strong>$1</strong>');
-          }
-        });
+        if (keywords.length > 0) {
+          keywords.forEach(kw => {
+            if (kw) {
+              const regex = new RegExp(`(${kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+              html = html.replace(regex, '<strong>$1</strong>');
+            }
+          });
+        }
         div.innerHTML = html;
 
         div.onclick = () => selectItem(item);
