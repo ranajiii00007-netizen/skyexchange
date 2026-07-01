@@ -1045,15 +1045,35 @@ def admin_customers():
     cur = conn.cursor()
     
     if search:
-        cur.execute(
+        keywords = search.lower().split()
+        if keywords:
+            conds = []
+            params = []
+            for k in keywords:
+                conds.append(
+                    """
+                    (LOWER(name) LIKE ? OR 
+                     LOWER(reference) LIKE ? OR 
+                     LOWER(phone) LIKE ? OR 
+                     LOWER(phone2) LIKE ? OR 
+                     LOWER(phone3) LIKE ? OR 
+                     LOWER(address) LIKE ? OR 
+                     LOWER(country) LIKE ?)
+                    """
+                )
+                term = f"%{k}%"
+                params.extend([term, term, term, term, term, term, term])
+            
+            where_clause = " AND ".join(conds)
+            query = f"""
+                SELECT id, name, phone, phone2, phone3, address, reference, country, status, created_at 
+                FROM customers 
+                WHERE {where_clause}
+                ORDER BY name
             """
-            SELECT id, name, phone, phone2, phone3, address, reference, country, status, created_at 
-            FROM customers 
-            WHERE LOWER(name) LIKE ? OR LOWER(reference) LIKE ? OR LOWER(phone) LIKE ? OR LOWER(country) LIKE ?
-            ORDER BY name
-            """,
-            (f"%{search.lower()}%", f"%{search.lower()}%", f"%{search.lower()}%", f"%{search.lower()}%")
-        )
+            cur.execute(query, params)
+        else:
+            cur.execute("SELECT id, name, phone, phone2, phone3, address, reference, country, status, created_at FROM customers ORDER BY name")
     else:
         cur.execute("SELECT id, name, phone, phone2, phone3, address, reference, country, status, created_at FROM customers ORDER BY name")
         
@@ -2180,8 +2200,20 @@ def admin_transactions():
     params = []
     
     if customer:
-        query += " AND LOWER(customer_name) LIKE ?"
-        params.append(f"%{customer.lower()}%")
+        keywords = customer.lower().split()
+        for k in keywords:
+            query += """ AND (
+                LOWER(customer_name) LIKE ? OR 
+                LOWER(collector_name) LIKE ? OR 
+                LOWER(banker_name) LIKE ? OR 
+                LOWER(target_currency) LIKE ? OR 
+                LOWER(notes) LIKE ? OR 
+                LOWER(picked_by) LIKE ? OR
+                LOWER(transaction_type) LIKE ? OR
+                LOWER(status) LIKE ?
+            )"""
+            term = f"%{k}%"
+            params.extend([term, term, term, term, term, term, term, term])
     if collector:
         query += " AND collector_name = ?"
         params.append(collector)
@@ -3134,17 +3166,21 @@ def get_transactions(
         params.append(date_to)
 
     if search:
-        clauses.append(
-            "("
-            "LOWER(t.customer_name) LIKE ? OR "
-            "LOWER(t.target_currency) LIKE ? OR "
-            "LOWER(COALESCE(c.phone, '')) LIKE ? OR "
-            "LOWER(COALESCE(c.phone2, '')) LIKE ? OR "
-            "LOWER(COALESCE(c.phone3, '')) LIKE ?"
-            ")"
-        )
-        search_value = f"%{search.lower()}%"
-        params.extend([search_value, search_value, search_value, search_value, search_value])
+        keywords = search.lower().split()
+        for k in keywords:
+            clauses.append(
+                """(
+                LOWER(t.customer_name) LIKE ? OR 
+                LOWER(t.target_currency) LIKE ? OR 
+                LOWER(COALESCE(c.phone, '')) LIKE ? OR 
+                LOWER(COALESCE(c.phone2, '')) LIKE ? OR 
+                LOWER(COALESCE(c.phone3, '')) LIKE ? OR
+                LOWER(COALESCE(t.notes, '')) LIKE ? OR
+                LOWER(COALESCE(t.banker_name, '')) LIKE ?
+                )"""
+            )
+            term = f"%{k}%"
+            params.extend([term, term, term, term, term, term, term])
 
     where_clause = " AND ".join(clauses)
     query = (
