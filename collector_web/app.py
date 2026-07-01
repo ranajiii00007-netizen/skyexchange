@@ -803,14 +803,23 @@ def banker_dashboard():
         rates_by_currency.setdefault(currency, []).append((r_date, rate))
 
     # Fetch transactions
-    cur.execute("SELECT deal_date, target_currency, foreign_amount, customer_name, status, notes, bank_account_details, bank_account_attachment FROM transactions WHERE LOWER(banker_name)=LOWER(?) ORDER BY deal_date DESC, id DESC", (banker_name,))
+    cur.execute(
+        """
+        SELECT id, deal_date, target_currency, foreign_amount, customer_name, status, notes, 
+               bank_account_details, bank_account_attachment, eur_expected, eur_received, pending_eur 
+        FROM transactions 
+        WHERE LOWER(banker_name)=LOWER(?) 
+        ORDER BY deal_date DESC, id DESC
+        """,
+        (banker_name,),
+    )
     tx_rows = cur.fetchall()
 
     ledger_txs = []
     overall_total_usd = 0.0
     currency_totals = {}
 
-    for deal_date, currency, amount, customer_name, status, notes, ac_details, ac_attachment in tx_rows:
+    for tx_id, deal_date, currency, amount, customer_name, status, notes, ac_details, ac_attachment, eur_expected, eur_received, pending_eur in tx_rows:
         c_rates = rates_by_currency.get(currency, [])
         rate = get_banker_rate(c_rates, currency, deal_date)
         usd = (amount / rate) if rate else 0.0
@@ -822,11 +831,11 @@ def banker_dashboard():
         curr_sum["usd"] += usd
 
         ledger_txs.append(dict(
-            date=deal_date, currency=currency, amount=amount, rate=rate, usd=usd,
+            id=tx_id, date=deal_date, currency=currency, amount=amount, rate=rate, usd=usd,
             customer_name=customer_name, status=status, notes=notes,
-            bank_account_details=ac_details, bank_account_attachment=ac_attachment
+            bank_account_details=ac_details, bank_account_attachment=ac_attachment,
+            eur_expected=eur_expected, eur_received=eur_received, pending_eur=pending_eur
         ))
-
 
     # Calculate overall paid USD
     cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
@@ -858,15 +867,67 @@ def banker_dashboard():
         "currency_totals": sorted(currency_totals.items(), key=lambda x: x[0]),
     }
 
+    pending_txs = [tx for tx in ledger_txs if tx["status"] == "OPEN"]
+    completed_txs = [tx for tx in ledger_txs if tx["status"] == "CLOSED"]
+
     return render_template(
         "banker_dashboard.html",
         banker_name=banker_name,
         banker_details=banker_details,
         current_rates=current_rates,
-        transactions=ledger_txs,
+        pending_txs=pending_txs,
+        completed_txs=completed_txs,
         payments=payments,
         summary=summary,
     )
+
+
+@app.route("/banker/transaction/<int:transaction_id>/complete", methods=["POST"])
+@banker_required
+def banker_transaction_complete(transaction_id):
+    banker_name = session["banker_name"]
+    conn = db()
+    cur = conn.cursor()
+    try:
+        lock_sql = ""
+        if database.using_postgres():
+            lock_sql = " FOR UPDATE"
+
+        cur.execute(
+            """
+            SELECT eur_expected, status
+            FROM transactions
+            WHERE id=? AND LOWER(banker_name)=LOWER(?) AND status='OPEN'
+            """ + lock_sql,
+            (transaction_id, banker_name),
+        )
+        row = cur.fetchone()
+        if not row:
+            flash("Transaction not found or already completed.", "error")
+            conn.rollback()
+            return redirect(url_for("banker_dashboard"))
+
+        eur_expected = float(row[0] or 0)
+        
+        # Mark as completed
+        cur.execute(
+            """
+            UPDATE transactions
+            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?
+            WHERE id=?
+            """,
+            (eur_expected, str(date.today()), transaction_id),
+        )
+        conn.commit()
+        database.bump_app_revision()
+        flash("Transaction payment marked as completed successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error completing transaction: {exc}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("banker_dashboard"))
 
 
 

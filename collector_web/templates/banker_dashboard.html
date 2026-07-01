@@ -80,61 +80,119 @@
 
 <!-- Bottom Section: Transactions & Payments lists -->
 <div class="stats-grid" style="grid-template-columns: 1.6fr 0.9fr; align-items: start; margin-top: 24px;">
-  <!-- Associated Transactions -->
-  <div class="card">
-    <h3>💼 Associated Transactions</h3>
-    <div class="table-container" style="max-height: 450px; overflow-y: auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Client</th>
-            <th>Sent Currency</th>
-            <th>Rate Used</th>
-            <th style="text-align: right;">Foreign Amount</th>
-            <th style="text-align: right;">USD Equivalent</th>
-            <th>Receiving Account</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if transactions %}
-            {% for tx in transactions %}
-              <tr>
-                <td>{{ tx.date }}</td>
-                <td><strong>{{ tx.customer_name }}</strong></td>
-                <td><span class="badge badge-open">{{ tx.currency }}</span></td>
-                <td>{{ tx.rate or '—' }}</td>
-                <td style="text-align: right; font-weight: 600;">{{ tx.amount | money }}</td>
-                <td style="text-align: right; font-weight: 600; color: var(--brand);">${{ tx.usd | money }}</td>
-                <td>
-                  {% if tx.bank_account_details %}
-                    <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
-                  {% else %}
-                    <span style="color: var(--muted); font-size: 12px;">—</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <span class="badge {% if tx.status == 'CLOSED' %}badge-closed{% else %}badge-pending{% endif %}">
-                    {{ tx.status }}
-                  </span>
-                </td>
-              </tr>
-            {% endfor %}
-          {% else %}
+  <!-- Left Side: Pending & Completed Transactions -->
+  <div style="display: flex; flex-direction: column; gap: 24px;">
+    
+    <!-- Pending Payments -->
+    <div class="card">
+      <h3 style="color: #ffb300; display: flex; align-items: center; gap: 8px;">⏳ Pending Payments (Action Required)</h3>
+      <div class="table-container" style="max-height: 350px; overflow-y: auto;">
+        <table>
+          <thead>
             <tr>
-              <td colspan="8" style="text-align: center; color: var(--muted); padding: 20px 0;">No transactions assigned.</td>
+              <th>Date</th>
+              <th>Client</th>
+              <th>Sent Currency</th>
+              <th>Rate Used</th>
+              <th style="text-align: right;">Foreign Amount</th>
+              <th style="text-align: right;">EUR Expected</th>
+              <th style="text-align: right;">USD Equivalent</th>
+              <th>Receiving Account</th>
+              <th style="text-align: center;">Action</th>
             </tr>
-          {% endif %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% if pending_txs %}
+              {% for tx in pending_txs %}
+                <tr>
+                  <td>{{ tx.date }}</td>
+                  <td><strong>{{ tx.customer_name }}</strong></td>
+                  <td><span class="badge badge-open">{{ tx.currency }}</span></td>
+                  <td>{{ tx.rate or '—' }}</td>
+                  <td style="text-align: right; font-weight: 600;">{{ tx.amount | money }}</td>
+                  <td style="text-align: right; font-weight: 600; color: var(--brand);">€{{ tx.eur_expected | money }}</td>
+                  <td style="text-align: right; font-weight: 600; color: var(--muted); font-size: 13px;">${{ tx.usd | money }}</td>
+                  <td>
+                    {% if tx.bank_account_details %}
+                      <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
+                    {% else %}
+                      <span style="color: var(--muted); font-size: 12px;">—</span>
+                    {% endif %}
+                  </td>
+                  <td style="text-align: center;">
+                    <form action="{{ url_for('banker_transaction_complete', transaction_id=tx.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to mark this transaction as completed? This confirms that you have sent €{{ tx.eur_expected | money }} to the customer\'s bank account.');" style="display:inline;">
+                      <button type="submit" class="btn btn-success" style="padding: 4px 8px; font-size: 11px; font-weight: 600;">✅ Mark Completed</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--muted); padding: 20px 0;">No pending payments assigned.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- Completed Payments History -->
+    <div class="card">
+      <h3 style="color: var(--success); display: flex; align-items: center; gap: 8px;">✅ Completed Payments History</h3>
+      <div class="table-container" style="max-height: 350px; overflow-y: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Client</th>
+              <th>Sent Currency</th>
+              <th>Rate Used</th>
+              <th style="text-align: right;">Foreign Amount</th>
+              <th style="text-align: right;">EUR Paid</th>
+              <th style="text-align: right;">USD Equivalent</th>
+              <th>Receiving Account</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if completed_txs %}
+              {% for tx in completed_txs %}
+                <tr>
+                  <td>{{ tx.date }}</td>
+                  <td><strong>{{ tx.customer_name }}</strong></td>
+                  <td><span class="badge badge-open">{{ tx.currency }}</span></td>
+                  <td>{{ tx.rate or '—' }}</td>
+                  <td style="text-align: right; font-weight: 600;">{{ tx.amount | money }}</td>
+                  <td style="text-align: right; font-weight: 600; color: var(--success-dark);">€{{ tx.eur_expected | money }}</td>
+                  <td style="text-align: right; font-weight: 600; color: var(--brand);">${{ tx.usd | money }}</td>
+                  <td>
+                    {% if tx.bank_account_details %}
+                      <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
+                    {% else %}
+                      <span style="color: var(--muted); font-size: 12px;">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="badge badge-closed">COMPLETED</span>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--muted); padding: 20px 0;">No completed payments found.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <!-- Recent Payments -->
   <div class="card">
-    <h3>💸 Payment History</h3>
-    <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+    <h3>💸 Banker Ledger Payments</h3>
+    <div class="table-container" style="max-height: 750px; overflow-y: auto;">
       <table>
         <thead>
           <tr>
