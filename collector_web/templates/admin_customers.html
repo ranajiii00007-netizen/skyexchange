@@ -66,14 +66,8 @@
     <form method="POST" action="{{ url_for('admin_customers_create_user') }}" class="grid-form" style="grid-template-columns: 1fr;">
       <label>
         Select Customer
-        <select name="customer_name" required>
-          <option value="">Choose customer...</option>
-          {% for customer in customers %}
-            {% if customer.status == 1 %}
-              <option value="{{ customer.name }}">{{ customer.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </select>
+        <input type="text" id="credentials-customer-search" placeholder="Type to search customer..." autocomplete="off" required>
+        <input type="hidden" id="credentials-customer" name="customer_name" required>
       </label>
       <label>
         Username
@@ -257,6 +251,14 @@ function clearForm() {
   document.getElementById('cust-country').value = '';
   document.getElementById('cust-status').value = '1';
 }
+
+// Initialize Autocomplete for Credentials Form
+const customerListForCreds = [{% for customer in customers %}{% if customer.status == 1 %}"{{ customer.name }}",{% endif %}{% endfor %}];
+initAutocomplete(
+  document.getElementById('credentials-customer-search'),
+  document.getElementById('credentials-customer'),
+  customerListForCreds
+);
 </script>
 
 {% endblock %}

@@ -82,5 +82,133 @@
       </main>
     </div>
   </div>
+  <script>
+  function initAutocomplete(inputElement, hiddenElement, itemsList) {
+    const container = inputElement.parentElement;
+    container.classList.add('autocomplete-wrapper');
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'autocomplete-dropdown';
+    dropdown.style.display = 'none';
+    container.appendChild(dropdown);
+
+    let highlightedIndex = -1;
+
+    function renderSuggestions() {
+      const query = inputElement.value.trim().toLowerCase();
+      dropdown.innerHTML = '';
+      
+      if (!query) {
+        dropdown.style.display = 'none';
+        highlightedIndex = -1;
+        return;
+      }
+
+      const keywords = query.split(/\s+/);
+      const matches = itemsList.filter(item => {
+        const lowerItem = item.toLowerCase();
+        return keywords.every(kw => lowerItem.includes(kw));
+      });
+
+      if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        highlightedIndex = -1;
+        return;
+      }
+
+      matches.slice(0, 10).forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'autocomplete-item';
+        
+        let html = item;
+        keywords.forEach(kw => {
+          if (kw) {
+            const regex = new RegExp(`(${kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+            html = html.replace(regex, '<strong>$1</strong>');
+          }
+        });
+        div.innerHTML = html;
+
+        div.onclick = () => selectItem(item);
+        dropdown.appendChild(div);
+      });
+
+      dropdown.style.display = 'block';
+      highlightedIndex = -1;
+    }
+
+    function selectItem(item) {
+      inputElement.value = item;
+      hiddenElement.value = item;
+      dropdown.style.display = 'none';
+      highlightedIndex = -1;
+      
+      const event = new Event('change', { bubbles: true });
+      hiddenElement.dispatchEvent(event);
+    }
+
+    inputElement.addEventListener('input', () => {
+      hiddenElement.value = inputElement.value;
+      renderSuggestions();
+    });
+
+    inputElement.addEventListener('focus', () => {
+      renderSuggestions();
+    });
+
+    inputElement.addEventListener('keydown', (e) => {
+      const items = dropdown.querySelectorAll('.autocomplete-item');
+      if (dropdown.style.display === 'none') {
+        if (e.key === 'ArrowDown') {
+          renderSuggestions();
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        highlightedIndex = (highlightedIndex + 1) % items.length;
+        updateHighlight(items);
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        highlightedIndex = (highlightedIndex - 1 + items.length) % items.length;
+        updateHighlight(items);
+        e.preventDefault();
+      } else if (e.key === 'Enter') {
+        if (highlightedIndex >= 0 && highlightedIndex < items.length) {
+          const selectedText = items[highlightedIndex].textContent;
+          selectItem(selectedText);
+        } else {
+          if (items.length > 0) {
+            selectItem(items[0].textContent);
+          }
+        }
+        e.preventDefault();
+      } else if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+        highlightedIndex = -1;
+        e.preventDefault();
+      }
+    });
+
+    function updateHighlight(items) {
+      items.forEach((item, index) => {
+        if (index === highlightedIndex) {
+          item.classList.add('highlighted');
+          item.scrollIntoView({ block: 'nearest' });
+        } else {
+          item.classList.remove('highlighted');
+        }
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target !== inputElement && e.target !== dropdown && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+        highlightedIndex = -1;
+      }
+    });
+  }
+  </script>
 </body>
 </html>

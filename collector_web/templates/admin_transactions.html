@@ -10,12 +10,8 @@
     
     <label>
       Customer
-      <select id="tx-customer" name="customer_name">
-        <option value="">Select Customer</option>
-        {% for c in dropdowns.customers %}
-          <option value="{{ c.name }}">{{ c.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="tx-customer-search" placeholder="Type to search customer..." autocomplete="off" required>
+      <input type="hidden" id="tx-customer" name="customer_name" required>
     </label>
 
     <label>
@@ -275,6 +271,7 @@ function editTx(tx) {
   document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + tx.customer_name + ')';
   document.getElementById('tx-id').value = tx.id;
   document.getElementById('tx-customer').value = tx.customer_name;
+  document.getElementById('tx-customer-search').value = tx.customer_name;
   document.getElementById('tx-currency').value = tx.target_currency;
   document.getElementById('tx-rate').value = tx.exchange_rate;
   document.getElementById('tx-foreign-amount').value = tx.foreign_amount;
@@ -294,6 +291,7 @@ function clearTxForm() {
   document.getElementById('form-title').innerText = '➕ Add New Transaction';
   document.getElementById('tx-id').value = '';
   document.getElementById('tx-customer').value = '';
+  document.getElementById('tx-customer-search').value = '';
   document.getElementById('tx-currency').value = '';
   document.getElementById('tx-rate').value = '';
   document.getElementById('tx-foreign-amount').value = '';
@@ -307,6 +305,14 @@ function clearTxForm() {
   document.getElementById('tx-picked-by').value = '';
   document.getElementById('tx-notes').value = '';
 }
+
+// Initialize Autocomplete for Customer field
+const customerList = {{ dropdowns.customers | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('tx-customer-search'),
+  document.getElementById('tx-customer'),
+  customerList
+);
 </script>
 
 {% endblock %}
