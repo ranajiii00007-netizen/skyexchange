@@ -50,14 +50,8 @@
     <form method="POST" action="{{ url_for('admin_bankers_create_user') }}" class="grid-form" style="grid-template-columns: 1fr;">
       <label>
         Select Banker
-        <select name="banker_name" required>
-          <option value="">Choose banker...</option>
-          {% for b in bankers %}
-            {% if b.status == 1 %}
-              <option value="{{ b.name }}">{{ b.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </select>
+        <input type="text" id="credentials-banker-search" placeholder="Type to search banker..." autocomplete="off" required>
+        <input type="hidden" id="credentials-banker" name="banker_name" required>
       </label>
       <label>
         Username
@@ -211,6 +205,14 @@ function clearBankerForm() {
   document.getElementById('banker-city').value = '';
   document.getElementById('banker-status').value = '1';
 }
+
+// Initialize Autocomplete for Banker Credentials Form
+const bankerListForCreds = [{% for b in bankers %}{% if b.status == 1 %}"{{ b.name }}",{% endif %}{% endfor %}];
+initAutocomplete(
+  document.getElementById('credentials-banker-search'),
+  document.getElementById('credentials-banker'),
+  bankerListForCreds
+);
 </script>
 
 {% endblock %}

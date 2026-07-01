@@ -46,22 +46,14 @@
 
     <label>
       Collector
-      <select id="tx-collector" name="collector_name">
-        <option value="">Select Collector</option>
-        {% for col in dropdowns.collectors %}
-          <option value="{{ col.name }}">{{ col.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="tx-collector-search" placeholder="Type to search collector..." autocomplete="off">
+      <input type="hidden" id="tx-collector" name="collector_name">
     </label>
 
     <label>
       Banker
-      <select id="tx-banker" name="banker_name">
-        <option value="">Select Banker</option>
-        {% for b in dropdowns.bankers %}
-          <option value="{{ b.name }}">{{ b.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="tx-banker-search" placeholder="Type to search banker..." autocomplete="off">
+      <input type="hidden" id="tx-banker" name="banker_name">
     </label>
 
     <label>
@@ -110,22 +102,14 @@
     
     <label>
       Collector
-      <select name="collector">
-        <option value="">All Collectors</option>
-        {% for c in dropdowns.collectors %}
-          <option value="{{ c.name }}" {% if filters.collector == c.name %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="filter-collector-search" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
+      <input type="hidden" id="filter-collector" name="collector" value="{{ filters.collector }}">
     </label>
 
     <label>
       Banker
-      <select name="banker">
-        <option value="">All Bankers</option>
-        {% for b in dropdowns.bankers %}
-          <option value="{{ b.name }}" {% if filters.banker == b.name %}selected{% endif %}>{{ b.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="filter-banker-search" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
+      <input type="hidden" id="filter-banker" name="banker" value="{{ filters.banker }}">
     </label>
 
     <label>
@@ -277,8 +261,13 @@ function editTx(tx) {
   document.getElementById('tx-foreign-amount').value = tx.foreign_amount;
   document.getElementById('tx-eur-expected').value = tx.eur_expected;
   document.getElementById('tx-eur-received').value = tx.eur_received;
-  document.getElementById('tx-collector').value = tx.collector_name;
-  document.getElementById('tx-banker').value = tx.banker_name;
+  
+  document.getElementById('tx-collector').value = tx.collector_name || '';
+  document.getElementById('tx-collector-search').value = tx.collector_name || '';
+  
+  document.getElementById('tx-banker').value = tx.banker_name || '';
+  document.getElementById('tx-banker-search').value = tx.banker_name || '';
+  
   document.getElementById('tx-date').value = tx.deal_date;
   document.getElementById('tx-received-date').value = tx.received_date;
   document.getElementById('tx-type').value = tx.transaction_type;
@@ -297,8 +286,13 @@ function clearTxForm() {
   document.getElementById('tx-foreign-amount').value = '';
   document.getElementById('tx-eur-expected').value = '';
   document.getElementById('tx-eur-received').value = '0.00';
+  
   document.getElementById('tx-collector').value = '';
+  document.getElementById('tx-collector-search').value = '';
+  
   document.getElementById('tx-banker').value = '';
+  document.getElementById('tx-banker-search').value = '';
+  
   document.getElementById('tx-date').value = '{{ today }}';
   document.getElementById('tx-received-date').value = '';
   document.getElementById('tx-type').value = 'REGULAR';
@@ -312,6 +306,32 @@ initAutocomplete(
   document.getElementById('tx-customer-search'),
   document.getElementById('tx-customer'),
   customerList
+);
+
+// Initialize Autocomplete for Collector field
+const collectorList = {{ dropdowns.collectors | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('tx-collector-search'),
+  document.getElementById('tx-collector'),
+  collectorList
+);
+initAutocomplete(
+  document.getElementById('filter-collector-search'),
+  document.getElementById('filter-collector'),
+  collectorList
+);
+
+// Initialize Autocomplete for Banker field
+const bankerList = {{ dropdowns.bankers | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('tx-banker-search'),
+  document.getElementById('tx-banker'),
+  bankerList
+);
+initAutocomplete(
+  document.getElementById('filter-banker-search'),
+  document.getElementById('filter-banker'),
+  bankerList
 );
 </script>
 

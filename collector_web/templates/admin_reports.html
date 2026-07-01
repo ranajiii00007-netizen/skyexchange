@@ -11,12 +11,8 @@
     
     <label>
       Banker
-      <select name="banker">
-        <option value="">All Bankers</option>
-        {% for b in dropdowns.bankers %}
-          <option value="{{ b.name }}" {% if filters.banker == b.name %}selected{% endif %}>{{ b.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="reports-banker-search" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
+      <input type="hidden" id="reports-banker" name="banker" value="{{ filters.banker }}">
     </label>
 
     <label>
@@ -27,12 +23,8 @@
 
     <label>
       Collector
-      <select name="collector">
-        <option value="">All Collectors</option>
-        {% for c in dropdowns.collectors %}
-          <option value="{{ c.name }}" {% if filters.collector == c.name %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" id="reports-collector-search" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
+      <input type="hidden" id="reports-collector" name="collector" value="{{ filters.collector }}">
     </label>
 
     <label>
@@ -267,6 +259,20 @@ initAutocomplete(
   document.getElementById('reports-customer-search'),
   document.getElementById('reports-customer'),
   customerListForReports
+);
+
+const bankerListForReports = {{ dropdowns.bankers | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('reports-banker-search'),
+  document.getElementById('reports-banker'),
+  bankerListForReports
+);
+
+const collectorListForReports = {{ dropdowns.collectors | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('reports-collector-search'),
+  document.getElementById('reports-collector'),
+  collectorListForReports
 );
 </script>
 

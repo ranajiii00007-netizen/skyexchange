@@ -109,12 +109,8 @@
       <form action="{{ url_for('admin_banker_rates_save') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
         <label>
           Select Banker
-          <select name="banker_name">
-            <option value="">Choose banker...</option>
-            {% for b in bankers %}
-              <option value="{{ b.name }}">{{ b.name }}</option>
-            {% endfor %}
-          </select>
+          <input type="text" id="rates-banker-search" placeholder="Type to search banker..." autocomplete="off" required>
+          <input type="hidden" id="rates-banker" name="banker_name" required>
         </label>
         <label>
           Select Currency
@@ -198,6 +194,14 @@ function switchRatesTab(tabId, event) {
   document.getElementById(tabId).style.display = 'block';
   event.target.classList.add('active');
 }
+
+// Initialize Autocomplete for Banker Rate Form
+const bankerListForRates = {{ bankers | map(attribute='name') | list | tojson }};
+initAutocomplete(
+  document.getElementById('rates-banker-search'),
+  document.getElementById('rates-banker'),
+  bankerListForRates
+);
 </script>
 
 {% endblock %}
