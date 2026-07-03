@@ -323,79 +323,7 @@ def customer_login():
     return render_template("customer_login.html")
 
 
-@app.route("/customer/register", methods=["GET", "POST"])
-def customer_register():
-    if session.get("customer_name"):
-        return redirect(url_for("customer_dashboard"))
 
-    if request.method == "POST":
-        fullname = request.form.get("fullname", "").strip()
-        phone = request.form.get("phone", "").strip() or None
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-
-        if not fullname:
-            flash("Full Name is required.", "error")
-            return redirect(url_for("customer_register"))
-
-        if len(username) < 3:
-            flash("Username must be at least 3 characters.", "error")
-            return redirect(url_for("customer_register"))
-
-        if len(password) < 6:
-            flash("Password must be at least 6 characters.", "error")
-            return redirect(url_for("customer_register"))
-
-        conn = db()
-        cur = conn.cursor()
-        try:
-            # Check username uniqueness in customer_users
-            cur.execute("SELECT 1 FROM customer_users WHERE username=?", (username,))
-            if cur.fetchone():
-                flash("That username is already taken.", "error")
-                conn.close()
-                return redirect(url_for("customer_register"))
-
-            # Check username uniqueness in collector_users just to prevent overlaps
-            cur.execute("SELECT 1 FROM collector_users WHERE username=?", (username,))
-            if cur.fetchone():
-                flash("That username is already taken.", "error")
-                conn.close()
-                return redirect(url_for("customer_register"))
-
-            # Create Customer Profile
-            cur.execute(
-                """
-                INSERT INTO customers (name, phone, status, created_at)
-                VALUES (?, ?, 1, ?)
-                """,
-                (fullname, phone, str(date.today())),
-            )
-
-            # Create Login Credentials
-            cur.execute(
-                """
-                INSERT INTO customer_users (customer_name, username, password_hash, status, created_at)
-                VALUES (?, ?, ?, 1, ?)
-                """,
-                (
-                    fullname,
-                    username,
-                    generate_password_hash(password),
-                    str(date.today()),
-                ),
-            )
-            conn.commit()
-            database.bump_app_revision()
-            flash("Your account has been created. Please sign in.", "success")
-            return redirect(url_for("customer_login"))
-        except Exception as exc:
-            conn.rollback()
-            flash(f"Registration error: {exc}", "error")
-        finally:
-            conn.close()
-
-    return render_template("customer_register.html")
 
 
 @app.route("/customer/logout")
@@ -1179,6 +1107,7 @@ def admin_customers_delete(customer_id):
 @app.route("/admin/customers/create_user", methods=["POST"])
 @admin_required
 def admin_customers_create_user():
+    creds_id = request.form.get("id", "").strip()
     customer_name = request.form.get("customer_name", "").strip()
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
@@ -1187,32 +1116,60 @@ def admin_customers_create_user():
         flash("Username must be at least 3 characters.", "error")
         return redirect(url_for("admin_customers"))
 
-    if len(password) < 6:
+    if not creds_id and len(password) < 6:
+        flash("Password is required and must be at least 6 characters for a new account.", "error")
+        return redirect(url_for("admin_customers"))
+
+    if creds_id and password and len(password) < 6:
         flash("Password must be at least 6 characters.", "error")
         return redirect(url_for("admin_customers"))
 
     conn = db()
     cur = conn.cursor()
     try:
-        cur.execute(
-            """
-            INSERT INTO customer_users (customer_name, username, password_hash, status, created_at)
-            VALUES (?, ?, ?, 1, ?)
-            """,
-            (
-                customer_name,
-                username,
-                generate_password_hash(password),
-                str(date.today()),
-            ),
-        )
+        if creds_id:
+            if password:
+                hashed = generate_password_hash(password)
+                cur.execute(
+                    """
+                    UPDATE customer_users
+                    SET customer_name=?, username=?, password_hash=?
+                    WHERE id=?
+                    """,
+                    (customer_name, username, hashed, int(creds_id)),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE customer_users
+                    SET customer_name=?, username=?
+                    WHERE id=?
+                    """,
+                    (customer_name, username, int(creds_id)),
+                )
+            log_admin_action("UPDATE_CUSTOMER_USER", f"Updated customer web credentials for {customer_name} (Username: {username})")
+            flash("Customer credentials updated successfully.", "success")
+        else:
+            cur.execute(
+                """
+                INSERT INTO customer_users (customer_name, username, password_hash, status, created_at)
+                VALUES (?, ?, ?, 1, ?)
+                """,
+                (
+                    customer_name,
+                    username,
+                    generate_password_hash(password),
+                    str(date.today()),
+                ),
+            )
+            log_admin_action("CREATE_CUSTOMER_USER", f"Created customer web login: {username} for {customer_name}")
+            flash("Customer web account created successfully.", "success")
+            
         conn.commit()
         database.bump_app_revision()
-        log_admin_action("CREATE_CUSTOMER_USER", f"Created customer web login: {username} for {customer_name}")
-        flash("Customer web account created successfully.", "success")
-    except Exception:
+    except Exception as exc:
         conn.rollback()
-        flash("That username already exists.", "error")
+        flash(f"Error saving customer credentials: {exc}", "error")
     finally:
         conn.close()
 
@@ -1233,25 +1190,6 @@ def admin_set_customer_user_status(user_id):
     return redirect(url_for("admin_customers"))
 
 
-@app.route("/admin/customers/user/<int:user_id>/password", methods=["POST"])
-@admin_required
-def admin_reset_customer_user_password(user_id):
-    password = request.form.get("password", "")
-    if len(password) < 6:
-        flash("Password must be at least 6 characters.", "error")
-        return redirect(url_for("admin_customers"))
-
-    conn = db()
-    cur = conn.cursor()
-    cur.execute(
-        "UPDATE customer_users SET password_hash=? WHERE id=?",
-        (generate_password_hash(password), user_id),
-    )
-    conn.commit()
-    conn.close()
-    database.bump_app_revision()
-    flash("Customer password reset successfully.", "success")
-    return redirect(url_for("admin_customers"))
 
 
 @app.route("/admin/customers/user/<int:user_id>/delete", methods=["POST"])
