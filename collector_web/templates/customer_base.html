@@ -22,6 +22,7 @@
       });
     }
   </script>
+  <script src="/static/pwa-installer.js" defer></script>
 </head>
 <body>
   <div class="layout-container">
@@ -37,6 +38,9 @@
         </li>
       </ul>
       <div class="sidebar-footer">
+        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px;">
+          📥 Download App
+        </button>
         <a href="{{ url_for('customer_logout') }}" class="btn btn-danger" style="width: 100%;">🚪 Logout</a>
       </div>
     </aside>

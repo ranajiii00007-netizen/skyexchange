@@ -41,7 +41,7 @@
 <div class="card" style="margin-bottom: 24px;">
   <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">📱 Installable Client Portals (PWA)</h3>
   <p style="color: var(--muted); font-size: 14px; margin-bottom: 20px;">
-    To install these portals as native applications on mobile or desktop devices, scan the QR codes or visit the links below:
+    To install these portals as native applications on mobile or desktop devices, click the button to open the portal, then click the <strong>"Download App"</strong> button on that page.
   </p>
   
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
@@ -53,11 +53,8 @@
         <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For customers to track deals, rates, and bank accounts.</p>
       </div>
       <div style="width: 100%;">
-        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}customer/login" alt="Customer Portal QR" style="width: 120px; height: 120px;">
-        </div>
-        <a href="{{ url_for('customer_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
-          🔗 Launch Customer Portal
+        <a href="{{ url_for('customer_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 10px 12px; font-weight: bold; background: var(--brand); color: white;">
+          🔗 Launch & Install Customer App
         </a>
       </div>
     </div>
@@ -70,11 +67,8 @@
         <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For bankers to view ledger summaries and update payouts.</p>
       </div>
       <div style="width: 100%;">
-        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}banker/login" alt="Banker Portal QR" style="width: 120px; height: 120px;">
-        </div>
-        <a href="{{ url_for('banker_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
-          🔗 Launch Banker Portal
+        <a href="{{ url_for('banker_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 10px 12px; font-weight: bold; background: var(--brand); color: white;">
+          🔗 Launch & Install Banker App
         </a>
       </div>
     </div>
@@ -87,11 +81,8 @@
         <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For collectors to record pending received collections.</p>
       </div>
       <div style="width: 100%;">
-        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}login" alt="Collector Portal QR" style="width: 120px; height: 120px;">
-        </div>
-        <a href="{{ url_for('login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
-          🔗 Launch Collector Portal
+        <a href="{{ url_for('login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 10px 12px; font-weight: bold; background: var(--brand); color: white;">
+          🔗 Launch & Install Collector App
         </a>
       </div>
     </div>

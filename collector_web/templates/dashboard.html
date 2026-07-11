@@ -6,7 +6,12 @@
     <p class="eyebrow">SKY EXCHANGE</p>
     <h1>{{ collector_name }}</h1>
   </div>
-  <a class="logout" href="{{ url_for('logout') }}">Logout</a>
+  <div style="display: flex; gap: 12px; align-items: center;">
+    <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; gap: 6px;">
+      📥 Download App
+    </button>
+    <a class="logout" href="{{ url_for('logout') }}">Logout</a>
+  </div>
 </header>
 
 <main class="dashboard">

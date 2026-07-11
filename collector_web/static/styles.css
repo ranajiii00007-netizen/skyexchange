@@ -565,3 +565,10 @@ tr:hover {
 .autocomplete-item strong {
   color: var(--brand);
 }
+
+/* Hide PWA Install elements if the app is already installed/running in standalone mode */
+@media (display-mode: standalone) {
+  .pwa-install-btn, .pwa-install-container {
+    display: none !important;
+  }
+}
