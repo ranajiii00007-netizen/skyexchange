@@ -46,62 +46,60 @@ function triggerPwaInstall() {
 function shareAppLink(title, path) {
   const url = window.location.origin + path;
   
-  // Always copy to clipboard first
-  copyTextToClipboard(url, () => {
-    // If native share is supported, try opening it as well
-    if (navigator.share) {
-      // Small timeout to let the alert close first
-      setTimeout(() => {
-        navigator.share({
-          title: title,
-          text: `Install the Sky Exchange ${title} application:`,
-          url: url
-        }).catch((err) => {
-          console.log('Native share cancelled or failed:', err);
-        });
-      }, 100);
-    }
-  });
-}
-
-function copyTextToClipboard(text, callback) {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${text}`);
-        if (callback) callback();
-      })
-      .catch(() => {
-        fallbackCopyText(text, callback);
-      });
-  } else {
-    fallbackCopyText(text, callback);
-  }
-}
-
-function fallbackCopyText(text, callback) {
+  // Create off-screen textarea for synchronous copy (essential for iOS/Android click handler context)
   const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.top = '0';
-  textarea.style.left = '0';
+  textarea.value = url;
   textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  textarea.setAttribute('readonly', ''); // Prevent keyboard popup on iOS
   document.body.appendChild(textarea);
+  
+  // Select text
   textarea.focus();
   textarea.select();
+  textarea.setSelectionRange(0, 99999); // For iOS selection compatibility
   
-  let successful = false;
+  let copied = false;
   try {
-    successful = document.execCommand('copy');
+    copied = document.execCommand('copy');
   } catch (err) {
-    successful = false;
+    copied = false;
   }
   
   document.body.removeChild(textarea);
   
-  if (successful) {
-    alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${text}`);
-    if (callback) callback();
+  if (copied) {
+    alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${url}`);
+    triggerNativeShare(title, url);
   } else {
-    window.prompt("Could not copy automatically. Please copy the link below manually to share:", text);
+    // Async fallback if execCommand fails
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url)
+        .then(() => {
+          alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${url}`);
+          triggerNativeShare(title, url);
+        })
+        .catch(() => {
+          window.prompt("Could not copy automatically. Please copy the link below manually to share:", url);
+        });
+    } else {
+      window.prompt("Could not copy automatically. Please copy the link below manually to share:", url);
+    }
+  }
+}
+
+function triggerNativeShare(title, url) {
+  if (navigator.share) {
+    // Small timeout to allow the alert dialog to close first
+    setTimeout(() => {
+      navigator.share({
+        title: title,
+        text: `Install the Sky Exchange ${title} application:`,
+        url: url
+      }).catch((err) => {
+        console.log('Native share cancelled or failed:', err);
+      });
+    }, 200);
   }
 }
