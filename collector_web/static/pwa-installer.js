@@ -45,35 +45,63 @@ function triggerPwaInstall() {
 
 function shareAppLink(title, path) {
   const url = window.location.origin + path;
-  if (navigator.share) {
-    navigator.share({
-      title: title,
-      text: `Install the Sky Exchange ${title} application:`,
-      url: url
-    })
-    .catch((error) => console.log('Error sharing', error));
-  } else {
-    // Fallback: Clipboard copy
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url)
-        .then(() => alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp or other apps:\n${url}`))
-        .catch(() => fallbackCopy(url));
-    } else {
-      fallbackCopy(url);
+  
+  // Always copy to clipboard first
+  copyTextToClipboard(url, () => {
+    // If native share is supported, try opening it as well
+    if (navigator.share) {
+      // Small timeout to let the alert close first
+      setTimeout(() => {
+        navigator.share({
+          title: title,
+          text: `Install the Sky Exchange ${title} application:`,
+          url: url
+        }).catch((err) => {
+          console.log('Native share cancelled or failed:', err);
+        });
+      }, 100);
     }
+  });
+}
+
+function copyTextToClipboard(text, callback) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${text}`);
+        if (callback) callback();
+      })
+      .catch(() => {
+        fallbackCopyText(text, callback);
+      });
+  } else {
+    fallbackCopyText(text, callback);
   }
 }
 
-function fallbackCopy(text) {
-  const input = document.createElement('input');
-  input.value = text;
-  document.body.appendChild(input);
-  input.select();
+function fallbackCopyText(text, callback) {
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.top = '0';
+  textarea.style.left = '0';
+  textarea.style.position = 'fixed';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  
+  let successful = false;
   try {
-    document.execCommand('copy');
-    alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${text}`);
+    successful = document.execCommand('copy');
   } catch (err) {
-    alert(`Copy this link to share:\n${text}`);
+    successful = false;
   }
-  document.body.removeChild(input);
+  
+  document.body.removeChild(textarea);
+  
+  if (successful) {
+    alert(`Link copied to clipboard!\n\nYou can now paste and share this link via WhatsApp:\n${text}`);
+    if (callback) callback();
+  } else {
+    window.prompt("Could not copy automatically. Please copy the link below manually to share:", text);
+  }
 }
