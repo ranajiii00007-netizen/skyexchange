@@ -15,7 +15,7 @@
     });
   }
 </script>
-<script src="/static/pwa-installer.js?v=4" defer></script>
+<script src="/static/pwa-installer.js?v=5" defer></script>
 {% endblock %}
 
 {% block body %}
@@ -44,11 +44,11 @@
       <button type="submit" style="background: var(--brand); color: #fff;">Sign In</button>
     </form>
     <div class="pwa-install-container" style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: center;">
-      <button onclick="triggerPwaInstall()" class="btn btn-secondary pwa-install-btn" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center;">
-        📥 Download Banker App
+      <button onclick="triggerAndroidInstall()" class="btn btn-secondary" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center; background: #3ddc84; color: #000; font-weight: bold; border: none;">
+        🤖 Download Android App
       </button>
-      <button onclick="shareAppLink('Banker Portal', '/banker/login')" class="btn btn-secondary" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center; border-color: var(--success); color: var(--success-dark);">
-        🟢 Share App Link / WhatsApp
+      <button onclick="triggerIosInstall()" class="btn btn-secondary" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center; background: #000000; color: #fff; font-weight: bold; border: none;">
+        🍎 Download iOS App
       </button>
     </div>
   </section>
