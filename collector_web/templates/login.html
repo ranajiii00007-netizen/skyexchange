@@ -25,9 +25,12 @@
       </label>
       <button type="submit">Sign In</button>
     </form>
-    <div class="pwa-install-container" style="margin-top: 16px; text-align: center;">
-      <button onclick="triggerPwaInstall()" class="btn btn-secondary pwa-install-btn" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px;">
+    <div class="pwa-install-container" style="margin-top: 16px; display: flex; flex-direction: column; gap: 8px; text-align: center;">
+      <button onclick="triggerPwaInstall()" class="btn btn-secondary pwa-install-btn" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center;">
         📥 Download Collector App
+      </button>
+      <button onclick="shareAppLink('Collector Portal', '/login')" class="btn btn-secondary" style="width: 100%; display: inline-flex; font-size: 13px; gap: 8px; justify-content: center; border-color: var(--success); color: var(--success-dark);">
+        🟢 Share App Link / WhatsApp
       </button>
     </div>
   </section>

@@ -38,8 +38,11 @@
         </li>
       </ul>
       <div class="sidebar-footer">
-        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px;">
+        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px; justify-content: center;">
           📥 Download App
+        </button>
+        <button onclick="shareAppLink('Banker Portal', '/banker/login')" class="btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px; justify-content: center; background: #25d366; color: white; border: none; font-weight: bold;">
+          🟢 Share App / WhatsApp
         </button>
         <a href="{{ url_for('banker_logout') }}" class="btn btn-danger" style="width: 100%;">🚪 Logout</a>
       </div>

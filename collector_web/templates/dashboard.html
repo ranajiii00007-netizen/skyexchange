@@ -10,6 +10,9 @@
     <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; gap: 6px;">
       📥 Download App
     </button>
+    <button onclick="shareAppLink('Collector Portal', '/login')" class="btn" style="padding: 6px 12px; font-size: 12px; font-weight: 700; gap: 6px; background: #25d366; color: white; border: none;">
+      🟢 Share App
+    </button>
     <a class="logout" href="{{ url_for('logout') }}">Logout</a>
   </div>
 </header>
