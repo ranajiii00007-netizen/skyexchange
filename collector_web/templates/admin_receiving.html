@@ -142,7 +142,7 @@
                   'customer_name': tx.customer_name,
                   'eur_expected': tx.eur_expected,
                   'pending_eur': tx.pending_eur
-                } | tojson }})">
+                } | tojson }}, this)">
                   <td>{{ tx.deal_date }}</td>
                   <td><strong>{{ tx.customer_name }}</strong></td>
                   <td>{{ tx.collector_name or 'N/A' }}</td>
@@ -233,7 +233,7 @@ function switchReceivingTab(tabName, event) {
   document.getElementById('tab-link-' + tabName).classList.add('active');
 }
 
-function selectPendingTx(tx) {
+function selectPendingTx(tx, rowElement) {
   document.getElementById('payment-form-title').innerText = '📥 Record Payment for #' + tx.id;
   document.getElementById('pay-tx-id').value = tx.id;
   document.getElementById('pay-customer').value = tx.customer_name;
@@ -255,7 +255,9 @@ function selectPendingTx(tx) {
   document.querySelectorAll('tbody tr').forEach(function(row) {
     row.style.background = '';
   });
-  event.currentTarget.style.background = 'var(--brand-light)';
+  if (rowElement) {
+    rowElement.style.background = 'var(--brand-light)';
+  }
 }
 </script>
 
