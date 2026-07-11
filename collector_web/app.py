@@ -62,6 +62,36 @@ def custom_static_uploads(filename):
     else:
         return send_from_directory(os.path.join(app.static_folder, "uploads"), filename)
 
+@app.route("/manifest_customer.json")
+def manifest_customer():
+    return send_from_directory(app.static_folder, "manifest_customer.json", mimetype="application/json")
+
+@app.route("/manifest_banker.json")
+def manifest_banker():
+    return send_from_directory(app.static_folder, "manifest_banker.json", mimetype="application/json")
+
+@app.route("/manifest_collector.json")
+def manifest_collector():
+    return send_from_directory(app.static_folder, "manifest_collector.json", mimetype="application/json")
+
+@app.route("/sw_customer.js")
+def sw_customer():
+    response = send_from_directory(app.static_folder, "sw_customer.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+@app.route("/sw_banker.js")
+def sw_banker():
+    response = send_from_directory(app.static_folder, "sw_banker.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+@app.route("/sw_collector.js")
+def sw_collector():
+    response = send_from_directory(app.static_folder, "sw_collector.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
 _DATABASE_READY = False
 
 
@@ -2016,8 +2046,8 @@ def admin_customer_rates_save():
     cur = conn.cursor()
     try:
         cur.execute(
-            "INSERT OR REPLACE INTO currency_rates (currency_code, base_currency, rate, rate_date) VALUES (?, 'EUR', ?, ?)",
-            (code, rate, rate_date)
+            "INSERT OR REPLACE INTO currency_rates (currency_code, base_currency, rate, rate_date) VALUES (?, ?, ?, ?)",
+            (code, "EUR", rate, rate_date)
         )
         conn.commit()
         database.bump_app_revision()

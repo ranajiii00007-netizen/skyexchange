@@ -8,6 +8,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    {% block pwa_tags %}
+    <link rel="manifest" href="/manifest_collector.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon_collector_192.png">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw_collector.js')
+            .then(reg => console.log('Collector SW registered:', reg.scope))
+            .catch(err => console.error('Collector SW failed:', err));
+        });
+      }
+    </script>
+    {% endblock %}
   </head>
   <body>
     {% block body %}{% endblock %}

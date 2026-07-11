@@ -25,12 +25,6 @@
       </label>
       <button type="submit">Open Admin</button>
     </form>
-    <div style="margin-top: 20px; text-align: center; font-size: 13px;">
-      <p style="color: var(--muted); margin-bottom: 8px;">Are you a customer, collector, or banker?</p>
-      <a href="{{ url_for('customer_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Customer Access</a>
-      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Collector Access</a>
-      <a href="{{ url_for('banker_login') }}" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px; display: inline-block; text-decoration: none; margin: 2px;">Banker Access</a>
-    </div>
   </section>
 </main>
 {% endblock %}

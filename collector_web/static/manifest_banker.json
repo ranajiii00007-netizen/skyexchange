@@ -1,0 +1,24 @@
+{
+  "name": "Sky Exchange Banker Portal",
+  "short_name": "Sky Banker",
+  "description": "Premium banker portal for managing banker rates and ledger on Sky Exchange.",
+  "start_url": "/banker/login",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/static/icon_banker_192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon_banker_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

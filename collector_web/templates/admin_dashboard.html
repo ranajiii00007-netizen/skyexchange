@@ -37,6 +37,67 @@
   </div>
 </div>
 
+<!-- 📱 Mobile PWA Client Portals -->
+<div class="card" style="margin-bottom: 24px;">
+  <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">📱 Installable Client Portals (PWA)</h3>
+  <p style="color: var(--muted); font-size: 14px; margin-bottom: 20px;">
+    To install these portals as native applications on mobile or desktop devices, scan the QR codes or visit the links below:
+  </p>
+  
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+    <!-- Customer Portal PWA -->
+    <div style="background: var(--bg-primary); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: space-between;">
+      <div>
+        <img src="/static/icon_customer_192.png" alt="Customer Portal Icon" style="width: 64px; height: 64px; border-radius: 12px; margin-bottom: 12px; box-shadow: var(--shadow); object-fit: cover;">
+        <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">Sky Customer Portal</h4>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For customers to track deals, rates, and bank accounts.</p>
+      </div>
+      <div style="width: 100%;">
+        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}customer/login" alt="Customer Portal QR" style="width: 120px; height: 120px;">
+        </div>
+        <a href="{{ url_for('customer_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
+          🔗 Launch Customer Portal
+        </a>
+      </div>
+    </div>
+
+    <!-- Banker Portal PWA -->
+    <div style="background: var(--bg-primary); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: space-between;">
+      <div>
+        <img src="/static/icon_banker_192.png" alt="Banker Portal Icon" style="width: 64px; height: 64px; border-radius: 12px; margin-bottom: 12px; box-shadow: var(--shadow); object-fit: cover;">
+        <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">Sky Banker Portal</h4>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For bankers to view ledger summaries and update payouts.</p>
+      </div>
+      <div style="width: 100%;">
+        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}banker/login" alt="Banker Portal QR" style="width: 120px; height: 120px;">
+        </div>
+        <a href="{{ url_for('banker_login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
+          🔗 Launch Banker Portal
+        </a>
+      </div>
+    </div>
+
+    <!-- Collector Portal PWA -->
+    <div style="background: var(--bg-primary); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: space-between;">
+      <div>
+        <img src="/static/icon_collector_192.png" alt="Collector Portal Icon" style="width: 64px; height: 64px; border-radius: 12px; margin-bottom: 12px; box-shadow: var(--shadow); object-fit: cover;">
+        <h4 style="font-size: 16px; font-weight: 700; margin-bottom: 4px;">Sky Collector Portal</h4>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 16px;">For collectors to record pending received collections.</p>
+      </div>
+      <div style="width: 100%;">
+        <div style="margin-bottom: 16px; background: #fff; padding: 10px; border-radius: var(--radius); border: 1px dashed var(--line); display: inline-block;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ request.host_url }}login" alt="Collector Portal QR" style="width: 120px; height: 120px;">
+        </div>
+        <a href="{{ url_for('login') }}" target="_blank" class="btn btn-secondary" style="font-size: 12px; width: 100%; display: flex; justify-content: center; gap: 6px; padding: 8px 12px;">
+          🔗 Launch Collector Portal
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Recent Deals -->
 <div class="card">
   <h3>⚡ Recent Deals</h3>
