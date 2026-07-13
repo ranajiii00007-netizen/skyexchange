@@ -14,14 +14,22 @@
       console.warn("initAutocomplete: inputElement or hiddenElement is null/undefined.");
       return;
     }
-    const container = inputElement.parentElement;
-    if (!container) return;
-    container.classList.add('autocomplete-wrapper');
+    const parent = inputElement.parentNode;
+    if (!parent) return;
+
+    // Create wrapper div to isolate the absolute dropdown from grid layouts
+    const wrapper = document.createElement('div');
+    wrapper.className = 'autocomplete-wrapper';
+    wrapper.style.position = 'relative';
+    wrapper.style.width = '100%';
+
+    parent.insertBefore(wrapper, inputElement);
+    wrapper.appendChild(inputElement);
 
     const dropdown = document.createElement('div');
     dropdown.className = 'autocomplete-dropdown';
     dropdown.style.display = 'none';
-    container.appendChild(dropdown);
+    wrapper.appendChild(dropdown);
 
     let highlightedIndex = -1;
     if (!Array.isArray(itemsList)) {
