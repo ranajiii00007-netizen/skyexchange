@@ -283,7 +283,7 @@ function clearCredsForm() {
 }
 
 // Initialize Autocomplete for Credentials Form
-const customerListForCreds = [{% for customer in customers %}{% if customer.status == 1 %}"{{ customer.name }}",{% endif %}{% endfor %}];
+const customerListForCreds = {{ customers | selectattr('status', 'equalto', 1) | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('credentials-customer-search'),
   document.getElementById('credentials-customer-search'),

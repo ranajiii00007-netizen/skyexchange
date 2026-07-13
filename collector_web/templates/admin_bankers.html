@@ -206,7 +206,7 @@ function clearBankerForm() {
 }
 
 // Initialize Autocomplete for Banker Credentials Form
-const bankerListForCreds = [{% for b in bankers %}{% if b.status == 1 %}"{{ b.name }}",{% endif %}{% endfor %}];
+const bankerListForCreds = {{ bankers | selectattr('status', 'equalto', 1) | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('credentials-banker-search'),
   document.getElementById('credentials-banker-search'),

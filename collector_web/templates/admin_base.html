@@ -69,7 +69,12 @@
         }
         div.innerHTML = html;
 
-        div.onclick = () => selectItem(item);
+        const handleSelect = (e) => {
+          selectItem(item);
+          e.preventDefault();
+        };
+        div.addEventListener('mousedown', handleSelect);
+        div.addEventListener('touchstart', handleSelect);
         dropdown.appendChild(div);
       });
 

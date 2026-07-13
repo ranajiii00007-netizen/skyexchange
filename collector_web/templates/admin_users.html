@@ -186,7 +186,7 @@ function clearCollectorForm() {
 }
 
 // Initialize Autocomplete for Collector Credentials Form
-const collectorListForCreds = [{% for c in collectors %}{% if c.status == 1 %}"{{ c.name }}",{% endif %}{% endfor %}];
+const collectorListForCreds = {{ collectors | selectattr('status', 'equalto', 1) | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('credentials-collector-search'),
   document.getElementById('credentials-collector-search'),
