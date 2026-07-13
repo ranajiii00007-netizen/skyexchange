@@ -11,20 +11,17 @@
     
     <label>
       Banker
-      <input type="text" id="reports-banker-search" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
-      <input type="hidden" id="reports-banker" name="banker" value="{{ filters.banker }}">
+      <input type="text" id="reports-banker-search" name="banker" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
     </label>
 
     <label>
       Customer
-      <input type="text" id="reports-customer-search" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
-      <input type="hidden" id="reports-customer" name="customer" value="{{ filters.customer }}">
+      <input type="text" id="reports-customer-search" name="customer" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
     </label>
 
     <label>
       Collector
-      <input type="text" id="reports-collector-search" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
-      <input type="hidden" id="reports-collector" name="collector" value="{{ filters.collector }}">
+      <input type="text" id="reports-collector-search" name="collector" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
     </label>
 
     <label>
@@ -257,21 +254,21 @@ function switchReportsTab(tabName, event) {
 const customerListForReports = {{ dropdowns.customers | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('reports-customer-search'),
-  document.getElementById('reports-customer'),
+  document.getElementById('reports-customer-search'),
   customerListForReports
 );
 
 const bankerListForReports = {{ dropdowns.bankers | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('reports-banker-search'),
-  document.getElementById('reports-banker'),
+  document.getElementById('reports-banker-search'),
   bankerListForReports
 );
 
 const collectorListForReports = {{ dropdowns.collectors | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('reports-collector-search'),
-  document.getElementById('reports-collector'),
+  document.getElementById('reports-collector-search'),
   collectorListForReports
 );
 </script>

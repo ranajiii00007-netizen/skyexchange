@@ -40,8 +40,7 @@
     <form method="POST" action="{{ url_for('admin_create_user') }}" class="grid-form">
       <label>
         Select Collector
-        <input type="text" id="credentials-collector-search" placeholder="Type to search collector..." autocomplete="off" required>
-        <input type="hidden" id="credentials-collector" name="collector_name" required>
+        <input type="text" id="credentials-collector-search" name="collector_name" placeholder="Type to search collector..." autocomplete="off" required>
       </label>
       <label>
         Username
@@ -190,7 +189,7 @@ function clearCollectorForm() {
 const collectorListForCreds = [{% for c in collectors %}{% if c.status == 1 %}"{{ c.name }}",{% endif %}{% endfor %}];
 initAutocomplete(
   document.getElementById('credentials-collector-search'),
-  document.getElementById('credentials-collector'),
+  document.getElementById('credentials-collector-search'),
   collectorListForCreds
 );
 </script>

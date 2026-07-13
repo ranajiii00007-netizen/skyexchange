@@ -50,8 +50,7 @@
     <form method="POST" action="{{ url_for('admin_bankers_create_user') }}" class="grid-form" style="grid-template-columns: 1fr;">
       <label>
         Select Banker
-        <input type="text" id="credentials-banker-search" placeholder="Type to search banker..." autocomplete="off" required>
-        <input type="hidden" id="credentials-banker" name="banker_name" required>
+        <input type="text" id="credentials-banker-search" name="banker_name" placeholder="Type to search banker..." autocomplete="off" required>
       </label>
       <label>
         Username
@@ -210,7 +209,7 @@ function clearBankerForm() {
 const bankerListForCreds = [{% for b in bankers %}{% if b.status == 1 %}"{{ b.name }}",{% endif %}{% endfor %}];
 initAutocomplete(
   document.getElementById('credentials-banker-search'),
-  document.getElementById('credentials-banker'),
+  document.getElementById('credentials-banker-search'),
   bankerListForCreds
 );
 </script>

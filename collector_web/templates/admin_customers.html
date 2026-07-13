@@ -67,8 +67,7 @@
       <input type="hidden" id="creds-id" name="id" value="">
       <label>
         Select Customer
-        <input type="text" id="credentials-customer-search" placeholder="Type to search customer..." autocomplete="off" required>
-        <input type="hidden" id="credentials-customer" name="customer_name" required>
+        <input type="text" id="credentials-customer-search" name="customer_name" placeholder="Type to search customer..." autocomplete="off" required>
       </label>
       <label>
         Username
@@ -252,7 +251,6 @@ function clearForm() {
 function editCredentials(u) {
   document.getElementById('creds-form-title').innerText = '✏️ Edit Customer Credentials';
   document.getElementById('creds-id').value = u.id;
-  document.getElementById('credentials-customer').value = u.customer_name;
   document.getElementById('credentials-customer-search').value = u.customer_name;
   document.getElementById('creds-username').value = u.username;
   
@@ -271,7 +269,6 @@ function editCredentials(u) {
 function clearCredsForm() {
   document.getElementById('creds-form-title').innerText = '🔑 Create Customer Login Credentials';
   document.getElementById('creds-id').value = '';
-  document.getElementById('credentials-customer').value = '';
   document.getElementById('credentials-customer-search').value = '';
   document.getElementById('creds-username').value = '';
   
@@ -289,7 +286,7 @@ function clearCredsForm() {
 const customerListForCreds = [{% for customer in customers %}{% if customer.status == 1 %}"{{ customer.name }}",{% endif %}{% endfor %}];
 initAutocomplete(
   document.getElementById('credentials-customer-search'),
-  document.getElementById('credentials-customer'),
+  document.getElementById('credentials-customer-search'),
   customerListForCreds
 );
 </script>

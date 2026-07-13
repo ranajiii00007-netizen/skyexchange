@@ -109,8 +109,7 @@
       <form action="{{ url_for('admin_banker_rates_save') }}" method="POST" class="grid-form" style="grid-template-columns: 1fr;">
         <label>
           Select Banker
-          <input type="text" id="rates-banker-search" placeholder="Type to search banker..." autocomplete="off" required>
-          <input type="hidden" id="rates-banker" name="banker_name" required>
+          <input type="text" id="rates-banker-search" name="banker_name" placeholder="Type to search banker..." autocomplete="off" required>
         </label>
         <label>
           Select Currency
@@ -199,7 +198,7 @@ function switchRatesTab(tabId, event) {
 const bankerListForRates = {{ bankers | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('rates-banker-search'),
-  document.getElementById('rates-banker'),
+  document.getElementById('rates-banker-search'),
   bankerListForRates
 );
 </script>

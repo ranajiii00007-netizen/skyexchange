@@ -2539,14 +2539,20 @@ def get_reports_data(filters):
     params = []
     
     if filters.get("banker"):
-        query += " AND banker_name = ?"
-        params.append(filters["banker"])
+        keywords = filters["banker"].lower().split()
+        for k in keywords:
+            query += " AND LOWER(banker_name) LIKE ?"
+            params.append(f"%{k}%")
     if filters.get("customer"):
-        query += " AND customer_name = ?"
-        params.append(filters["customer"])
+        keywords = filters["customer"].lower().split()
+        for k in keywords:
+            query += " AND LOWER(customer_name) LIKE ?"
+            params.append(f"%{k}%")
     if filters.get("collector"):
-        query += " AND collector_name = ?"
-        params.append(filters["collector"])
+        keywords = filters["collector"].lower().split()
+        for k in keywords:
+            query += " AND LOWER(collector_name) LIKE ?"
+            params.append(f"%{k}%")
     if filters.get("currency"):
         query += " AND target_currency = ?"
         params.append(filters["currency"])
