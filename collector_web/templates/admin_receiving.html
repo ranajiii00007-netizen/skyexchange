@@ -158,14 +158,15 @@
           <tbody>
             {% if pending_txs %}
               {% for tx in pending_txs %}
-                <tr style="cursor: pointer;" onclick="selectPendingTx({{ {
-                  'id': tx.id,
-                  'customer_name': tx.customer_name,
-                  'eur_expected': tx.eur_expected,
-                  'pending_eur': tx.pending_eur,
-                  'collector_name': tx.collector_name,
-                  'banker_name': tx.banker_name
-                } | tojson }}, this)">
+                <tr style="cursor: pointer;" 
+                    class="pending-tx-row"
+                    data-id="{{ tx.id }}"
+                    data-customer="{{ tx.customer_name }}"
+                    data-expected="{{ tx.eur_expected }}"
+                    data-pending="{{ tx.pending_eur }}"
+                    data-collector="{{ tx.collector_name or '' }}"
+                    data-banker="{{ tx.banker_name or '' }}"
+                    onclick="selectPendingTxRow(this)">
                   <td>{{ tx.deal_date }}</td>
                   <td><strong>{{ tx.customer_name }}</strong></td>
                   <td>{{ tx.collector_name or 'N/A' }}</td>
@@ -255,6 +256,22 @@ function switchReceivingTab(tabName, event) {
   // Show selected panel
   document.getElementById(tabName + '-tab').style.display = 'block';
   document.getElementById('tab-link-' + tabName).classList.add('active');
+}
+
+function selectPendingTxRow(rowElement) {
+  try {
+    const tx = {
+      id: rowElement.getAttribute('data-id'),
+      customer_name: rowElement.getAttribute('data-customer'),
+      eur_expected: rowElement.getAttribute('data-expected'),
+      pending_eur: rowElement.getAttribute('data-pending'),
+      collector_name: rowElement.getAttribute('data-collector'),
+      banker_name: rowElement.getAttribute('data-banker')
+    };
+    selectPendingTx(tx, rowElement);
+  } catch (e) {
+    console.error("Error in selectPendingTxRow:", e);
+  }
 }
 
 function selectPendingTx(tx, rowElement) {
