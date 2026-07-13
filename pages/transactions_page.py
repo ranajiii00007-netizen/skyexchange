@@ -5,12 +5,20 @@ import styles
 
 
 class AutoCompleteEntry(tk.Entry):
-    def __init__(self, master, values=None, **kwargs):
+    active_entries = []
+    _global_bind_done = False
+
+    def __init__(self, master, values=None, clear_if_not_selected=False, **kwargs):
         super().__init__(master, **kwargs)
         self.values = values or []
         self.filtered = []
         self.popup = None
         self.listbox = None
+        self.clear_if_not_selected = clear_if_not_selected
+        self._selected_value = ""
+
+        AutoCompleteEntry.active_entries.append(self)
+
         self.bind("<KeyRelease>", self.on_keyrelease)
         self.bind("<Down>", self.move_down)
         self.bind("<Up>", self.move_up)
@@ -18,19 +26,52 @@ class AutoCompleteEntry(tk.Entry):
         self.bind("<Tab>", self.tab_select)
         self.bind("<Escape>", lambda e: self.hide_popup())
         self.bind("<FocusOut>", self.on_focus_out)
+        self.bind("<Destroy>", self._on_destroy)
+
+        if not AutoCompleteEntry._global_bind_done:
+            root = self.winfo_toplevel()
+            root.bind_all("<Button-1>", AutoCompleteEntry.close_all_popups, add="+")
+            root.bind_all("<FocusIn>", AutoCompleteEntry.close_all_popups, add="+")
+            AutoCompleteEntry._global_bind_done = True
+
+    def _on_destroy(self, _event):
+        if self in AutoCompleteEntry.active_entries:
+            AutoCompleteEntry.active_entries.remove(self)
+
+    @classmethod
+    def close_all_popups(cls, event=None):
+        if not event:
+            return
+        clicked_widget = event.widget
+        for entry in list(cls.active_entries):
+            try:
+                if clicked_widget == entry:
+                    continue
+                if entry.popup:
+                    if clicked_widget == entry.popup:
+                        continue
+                    try:
+                        if clicked_widget.winfo_toplevel() == entry.popup:
+                            continue
+                    except Exception:
+                        pass
+                entry.hide_popup()
+            except Exception:
+                pass
 
     def set_values(self, values):
-        self.values = values
+        self.values = values or []
 
     def on_keyrelease(self, event):
         if event.keysym in ("Up", "Down", "Return", "Tab", "Escape"):
             return
-        typed = self.get().lower()
-        self.filtered = (
-            self.values
-            if not typed
-            else [item for item in self.values if typed in item.lower()]
-        )
+        self._selected_value = ""
+        typed = self.get().strip().lower()
+        if not typed:
+            self.filtered = self.values
+        else:
+            self.filtered = [item for item in self.values if typed in item.lower()]
+        
         if not self.filtered:
             self.hide_popup()
             return
@@ -41,7 +82,7 @@ class AutoCompleteEntry(tk.Entry):
             self.popup = tk.Toplevel(self)
             self.popup.wm_overrideredirect(True)
             frame = tk.Frame(self.popup, borderwidth=1, relief="solid")
-            frame.pack()
+            frame.pack(fill="both", expand=True)
             self.listbox = tk.Listbox(frame, height=6)
             scrollbar = tk.Scrollbar(frame)
             self.listbox.config(yscrollcommand=scrollbar.set)
@@ -50,13 +91,16 @@ class AutoCompleteEntry(tk.Entry):
             scrollbar.pack(side="right", fill="y")
             self.listbox.bind("<Double-Button-1>", self.select_item)
             self.listbox.bind("<Return>", self.select_item)
+
         self.listbox.delete(0, tk.END)
         for item in self.filtered[:50]:
             self.listbox.insert(tk.END, item)
         if self.listbox.size() > 0:
+            self.listbox.selection_clear(0, tk.END)
             self.listbox.selection_set(0)
             self.listbox.activate(0)
-        x, y = self.winfo_rootx(), self.winfo_rooty() + self.winfo_height()
+        x = self.winfo_rootx()
+        y = self.winfo_rooty() + self.winfo_height()
         self.popup.geometry(f"{self.winfo_width()}x120+{x}+{y}")
 
     def hide_popup(self):
@@ -65,50 +109,75 @@ class AutoCompleteEntry(tk.Entry):
             self.popup = None
             self.listbox = None
 
-    def move_down(self, event):
+    def move_down(self, _event):
         if not self.listbox:
-            return
-        index = min(
-            self.listbox.curselection()[0] + 1
-            if self.listbox.curselection()
-            else 0 + 1,
-            self.listbox.size() - 1,
-        )
+            return None
+        selection = self.listbox.curselection()
+        index = 0 if not selection else selection[0] + 1
+        if index >= self.listbox.size():
+            index = self.listbox.size() - 1
         self.listbox.selection_clear(0, tk.END)
         self.listbox.selection_set(index)
         self.listbox.activate(index)
         self.listbox.see(index)
         return "break"
 
-    def move_up(self, event):
+    def move_up(self, _event):
         if not self.listbox:
-            return
-        index = max(
-            (self.listbox.curselection()[0] if self.listbox.curselection() else 1) - 1,
-            0,
-        )
+            return None
+        selection = self.listbox.curselection()
+        index = 0 if not selection else selection[0] - 1
+        if index < 0:
+            index = 0
         self.listbox.selection_clear(0, tk.END)
         self.listbox.selection_set(index)
         self.listbox.activate(index)
         self.listbox.see(index)
         return "break"
 
-    def select_item(self, event=None):
-        if self.listbox:
-            selection = self.listbox.curselection()
-            if selection:
-                value = self.listbox.get(selection[0])
-                self.delete(0, tk.END)
-                self.insert(0, value)
+    def select_item(self, _event=None):
+        if not self.listbox:
+            return
+        selection = self.listbox.curselection()
+        if not selection:
+            return
+        value = self.listbox.get(selection[0])
+        self.delete(0, tk.END)
+        self.insert(0, value)
+        self._selected_value = value
         self.hide_popup()
 
-    def tab_select(self, event):
-        if self.listbox:
-            self.select_item()
+    def tab_select(self, _event):
+        self.select_item()
         return None
 
-    def on_focus_out(self, event):
-        self.after(100, self.hide_popup)
+    def on_focus_out(self, _event):
+        def _cleanup():
+            focused = self.focus_get()
+            if focused == self or focused == self.listbox:
+                return
+            if self.popup:
+                try:
+                    if focused == self.popup or focused.winfo_toplevel() == self.popup:
+                        return
+                except Exception:
+                    pass
+            
+            self.hide_popup()
+            if not self.clear_if_not_selected:
+                return
+            typed = self.get().strip()
+            if not typed:
+                return
+            valid_exact = any(v.lower() == typed.lower() for v in self.values)
+            selected_exact = (
+                bool(self._selected_value)
+                and self._selected_value.lower() == typed.lower()
+            )
+            if not (valid_exact or selected_exact):
+                self.delete(0, tk.END)
+
+        self.after(100, _cleanup)
 
 
 class TransactionsPage:

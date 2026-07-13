@@ -39,11 +39,24 @@ class AutoCompleteEntry(tk.Entry):
             AutoCompleteEntry.active_entries.remove(self)
 
     @classmethod
-    def close_all_popups(cls, _event=None):
+    def close_all_popups(cls, event=None):
+        if not event:
+            return
+        clicked_widget = event.widget
         for entry in list(cls.active_entries):
             try:
+                if clicked_widget == entry:
+                    continue
+                if entry.popup:
+                    if clicked_widget == entry.popup:
+                        continue
+                    try:
+                        if clicked_widget.winfo_toplevel() == entry.popup:
+                            continue
+                    except Exception:
+                        pass
                 entry.hide_popup()
-            except tk.TclError:
+            except Exception:
                 pass
 
     def set_values(self, values):
@@ -134,11 +147,21 @@ class AutoCompleteEntry(tk.Entry):
         self.hide_popup()
 
     def tab_select(self, _event):
-        self.hide_popup()
+        self.select_item()
         return None
 
     def on_focus_out(self, _event):
         def _cleanup():
+            focused = self.focus_get()
+            if focused == self or focused == self.listbox:
+                return
+            if self.popup:
+                try:
+                    if focused == self.popup or focused.winfo_toplevel() == self.popup:
+                        return
+                except Exception:
+                    pass
+
             self.hide_popup()
             if not self.clear_if_not_selected:
                 return
