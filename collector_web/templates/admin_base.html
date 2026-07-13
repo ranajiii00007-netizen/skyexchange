@@ -10,7 +10,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script>
   function initAutocomplete(inputElement, hiddenElement, itemsList) {
+    if (!inputElement || !hiddenElement) {
+      console.warn("initAutocomplete: inputElement or hiddenElement is null/undefined.");
+      return;
+    }
     const container = inputElement.parentElement;
+    if (!container) return;
     container.classList.add('autocomplete-wrapper');
 
     const dropdown = document.createElement('div');
@@ -19,6 +24,9 @@
     container.appendChild(dropdown);
 
     let highlightedIndex = -1;
+    if (!Array.isArray(itemsList)) {
+      itemsList = [];
+    }
 
     function renderSuggestions() {
       const query = inputElement.value.trim().toLowerCase();
@@ -26,8 +34,9 @@
       
       const keywords = query ? query.split(/\s+/) : [];
       const matches = itemsList.filter(item => {
+        if (!item) return false;
         if (keywords.length === 0) return true;
-        const lowerItem = item.toLowerCase();
+        const lowerItem = String(item).toLowerCase();
         return keywords.every(kw => lowerItem.includes(kw));
       });
 

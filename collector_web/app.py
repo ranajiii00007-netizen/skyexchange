@@ -2185,8 +2185,10 @@ def admin_transactions():
             params.extend([term, term, term, term, term, term, term, term])
             
     if customer:
-        query += " AND LOWER(customer_name) LIKE ?"
-        params.append(f"%{customer.lower()}%")
+        keywords = customer.lower().split()
+        for k in keywords:
+            query += " AND LOWER(customer_name) LIKE ?"
+            params.append(f"%{k}%")
         
     if collector:
         query += " AND collector_name = ?"
