@@ -97,19 +97,22 @@
   <form method="GET" class="grid-form">
     <label>
       Search Keywords
-      <input type="text" name="customer" value="{{ filters.customer }}" placeholder="Search client, currency, status, notes...">
+      <input type="text" name="search" value="{{ filters.search }}" placeholder="Search currency, status, notes, picked by...">
+    </label>
+
+    <label>
+      Customer Name
+      <input type="text" id="filter-customer-search" name="customer" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
     </label>
     
     <label>
       Collector
-      <input type="text" id="filter-collector-search" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
-      <input type="hidden" id="filter-collector" name="collector" value="{{ filters.collector }}">
+      <input type="text" id="filter-collector-search" name="collector" value="{{ filters.collector }}" placeholder="Type to search collector..." autocomplete="off">
     </label>
 
     <label>
       Banker
-      <input type="text" id="filter-banker-search" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
-      <input type="hidden" id="filter-banker" name="banker" value="{{ filters.banker }}">
+      <input type="text" id="filter-banker-search" name="banker" value="{{ filters.banker }}" placeholder="Type to search banker..." autocomplete="off">
     </label>
 
     <label>
@@ -307,6 +310,11 @@ initAutocomplete(
   document.getElementById('tx-customer'),
   customerList
 );
+initAutocomplete(
+  document.getElementById('filter-customer-search'),
+  document.getElementById('filter-customer-search'),
+  customerList
+);
 
 // Initialize Autocomplete for Collector field
 const collectorList = {{ dropdowns.collectors | map(attribute='name') | list | tojson }};
@@ -317,7 +325,7 @@ initAutocomplete(
 );
 initAutocomplete(
   document.getElementById('filter-collector-search'),
-  document.getElementById('filter-collector'),
+  document.getElementById('filter-collector-search'),
   collectorList
 );
 
@@ -330,7 +338,7 @@ initAutocomplete(
 );
 initAutocomplete(
   document.getElementById('filter-banker-search'),
-  document.getElementById('filter-banker'),
+  document.getElementById('filter-banker-search'),
   bankerList
 );
 </script>

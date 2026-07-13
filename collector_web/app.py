@@ -2131,6 +2131,7 @@ def admin_banker_rates_delete(rate_id):
 @admin_required
 def admin_transactions():
     customer = request.args.get("customer", "").strip()
+    search = request.args.get("search", "").strip()
     collector = request.args.get("collector", "").strip()
     banker = request.args.get("banker", "").strip()
     status = request.args.get("status", "ALL").strip()
@@ -2167,8 +2168,8 @@ def admin_transactions():
     """
     params = []
     
-    if customer:
-        keywords = customer.lower().split()
+    if search:
+        keywords = search.lower().split()
         for k in keywords:
             query += """ AND (
                 LOWER(customer_name) LIKE ? OR 
@@ -2182,6 +2183,11 @@ def admin_transactions():
             )"""
             term = f"%{k}%"
             params.extend([term, term, term, term, term, term, term, term])
+            
+    if customer:
+        query += " AND LOWER(customer_name) LIKE ?"
+        params.append(f"%{customer.lower()}%")
+        
     if collector:
         query += " AND collector_name = ?"
         params.append(collector)
@@ -2210,7 +2216,7 @@ def admin_transactions():
     conn.close()
 
     filters = {
-        "customer": customer, "collector": collector, "banker": banker, 
+        "customer": customer, "search": search, "collector": collector, "banker": banker, 
         "status": status, "date_from": date_from, "date_to": date_to
     }
     
@@ -2612,8 +2618,10 @@ def admin_receiving():
     filter_clause = ""
     params = []
     if customer:
-        filter_clause += " AND LOWER(customer_name) LIKE ?"
-        params.append(f"%{customer.lower()}%")
+        keywords = customer.lower().split()
+        for k in keywords:
+            filter_clause += " AND LOWER(customer_name) LIKE ?"
+            params.append(f"%{k}%")
     if collector:
         filter_clause += " AND collector_name = ?"
         params.append(collector)

@@ -16,8 +16,7 @@
     
     <label>
       Customer Name
-      <input type="text" id="filter-customer-search" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
-      <input type="hidden" id="filter-customer" name="customer" value="{{ filters.customer }}">
+      <input type="text" id="filter-customer-search" name="customer" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
     </label>
     
     <label>
@@ -265,7 +264,7 @@ function selectPendingTx(tx, rowElement) {
 const customerList = {{ dropdowns.customers | map(attribute='name') | list | tojson }};
 initAutocomplete(
   document.getElementById('filter-customer-search'),
-  document.getElementById('filter-customer'),
+  document.getElementById('filter-customer-search'),
   customerList
 );
 </script>
