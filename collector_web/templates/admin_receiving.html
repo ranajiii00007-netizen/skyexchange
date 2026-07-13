@@ -163,8 +163,8 @@
                   'customer_name': tx.customer_name,
                   'eur_expected': tx.eur_expected,
                   'pending_eur': tx.pending_eur,
-                  'collector_name': tx.collector_name or '',
-                  'banker_name': tx.banker_name or ''
+                  'collector_name': tx.collector_name,
+                  'banker_name': tx.banker_name
                 } | tojson }}, this)">
                   <td>{{ tx.deal_date }}</td>
                   <td><strong>{{ tx.customer_name }}</strong></td>
@@ -258,41 +258,63 @@ function switchReceivingTab(tabName, event) {
 }
 
 function selectPendingTx(tx, rowElement) {
-  document.getElementById('payment-form-title').innerText = '📥 Record Payment / Assign for #' + tx.id;
-  document.getElementById('pay-tx-id').value = tx.id;
-  document.getElementById('pay-customer').value = tx.customer_name;
-  document.getElementById('pay-expected').value = '€' + tx.eur_expected.toFixed(2);
-  document.getElementById('pay-pending').value = '€' + tx.pending_eur.toFixed(2);
-  
-  // Set collector dropdown
-  const collectorSelect = document.getElementById('pay-collector');
-  if (collectorSelect) {
-    collectorSelect.value = tx.collector_name || '';
-  }
-  
-  // Set banker dropdown
-  const bankerSelect = document.getElementById('pay-banker');
-  if (bankerSelect) {
-    bankerSelect.value = tx.banker_name || '';
-  }
-  
-  const amountField = document.getElementById('pay-amount');
-  amountField.value = tx.pending_eur.toFixed(2);
-  amountField.max = tx.pending_eur;
-  
-  // Enable submit
-  const form = document.getElementById('payment-form');
-  form.action = '/admin/receiving/pay/' + tx.id;
-  
-  const submitBtn = document.getElementById('pay-submit-btn');
-  submitBtn.disabled = false;
-  
-  // Highlight selected row in table
-  document.querySelectorAll('tbody tr').forEach(function(row) {
-    row.style.background = '';
-  });
-  if (rowElement) {
-    rowElement.style.background = 'var(--brand-light)';
+  try {
+    const expected = typeof tx.eur_expected === 'number' ? tx.eur_expected : parseFloat(tx.eur_expected || 0);
+    const pending = typeof tx.pending_eur === 'number' ? tx.pending_eur : parseFloat(tx.pending_eur || 0);
+
+    const titleEl = document.getElementById('payment-form-title');
+    if (titleEl) titleEl.innerText = '📥 Record Payment / Assign for #' + tx.id;
+
+    const txIdEl = document.getElementById('pay-tx-id');
+    if (txIdEl) txIdEl.value = tx.id;
+
+    const customerEl = document.getElementById('pay-customer');
+    if (customerEl) customerEl.value = tx.customer_name || '';
+
+    const expectedEl = document.getElementById('pay-expected');
+    if (expectedEl) expectedEl.value = '€' + expected.toFixed(2);
+
+    const pendingEl = document.getElementById('pay-pending');
+    if (pendingEl) pendingEl.value = '€' + pending.toFixed(2);
+
+    // Set collector dropdown
+    const collectorSelect = document.getElementById('pay-collector');
+    if (collectorSelect) {
+      collectorSelect.value = tx.collector_name || '';
+    }
+
+    // Set banker dropdown
+    const bankerSelect = document.getElementById('pay-banker');
+    if (bankerSelect) {
+      bankerSelect.value = tx.banker_name || '';
+    }
+
+    const amountField = document.getElementById('pay-amount');
+    if (amountField) {
+      amountField.value = pending.toFixed(2);
+      amountField.max = pending;
+    }
+
+    // Enable submit
+    const form = document.getElementById('payment-form');
+    if (form) {
+      form.action = '/admin/receiving/pay/' + tx.id;
+    }
+
+    const submitBtn = document.getElementById('pay-submit-btn');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+    }
+
+    // Highlight selected row in table
+    document.querySelectorAll('tbody tr').forEach(function(row) {
+      row.style.background = '';
+    });
+    if (rowElement) {
+      rowElement.style.background = 'var(--brand-light)';
+    }
+  } catch (e) {
+    console.error("Error in selectPendingTx:", e);
   }
 }
 
