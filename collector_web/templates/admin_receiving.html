@@ -308,7 +308,7 @@ function selectPendingTx(tx, rowElement) {
 
     const amountField = document.getElementById('pay-amount');
     if (amountField) {
-      amountField.value = pending.toFixed(2);
+      amountField.value = '';
       amountField.max = pending;
     }
 
