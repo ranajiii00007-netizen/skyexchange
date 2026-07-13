@@ -2700,6 +2700,9 @@ def admin_receiving():
 @admin_required
 def admin_receiving_pay(transaction_id):
     amount_text = request.form.get("amount", "").strip()
+    collector_name = request.form.get("collector_name", "").strip() or None
+    banker_name = request.form.get("banker_name", "").strip() or None
+
     redirect_args = {
         key: request.args.get(key, "").strip()
         for key in ("customer", "collector", "banker", "currency", "date_from", "date_to")
@@ -2708,9 +2711,6 @@ def admin_receiving_pay(transaction_id):
     redirect_args["tab"] = "pending"
 
     amount = safe_float(amount_text)
-    if amount <= 0:
-        flash("Enter a valid received EUR amount.", "error")
-        return redirect(url_for("admin_receiving", **redirect_args))
 
     conn = db()
     cur = conn.cursor()
@@ -2735,39 +2735,57 @@ def admin_receiving_pay(transaction_id):
             conn.rollback()
             return redirect(url_for("admin_receiving", **redirect_args))
 
-        expected = float(row[0] or 0)
-        already_received = float(row[1] or 0)
-        new_received = already_received + amount
+        if amount > 0:
+            expected = float(row[0] or 0)
+            already_received = float(row[1] or 0)
+            new_received = already_received + amount
 
-        if new_received > expected:
-            flash("Receiving amount exceeds the pending amount.", "error")
-            conn.rollback()
-            return redirect(url_for("admin_receiving", **redirect_args))
+            if new_received > expected:
+                flash("Receiving amount exceeds the pending amount.", "error")
+                conn.rollback()
+                return redirect(url_for("admin_receiving", **redirect_args))
 
-        pending = expected - new_received
-        status = "CLOSED" if pending == 0 else "OPEN"
+            pending = expected - new_received
+            status = "CLOSED" if pending == 0 else "OPEN"
 
-        cur.execute(
-            """
-            UPDATE transactions
-            SET eur_received=?, pending_eur=?, status=?, received_date=?, picked_by=?
-            WHERE id=?
-            """,
-            (
-                new_received,
-                pending,
-                status,
-                str(date.today()),
-                "Admin",
-                transaction_id,
-            ),
-        )
+            cur.execute(
+                """
+                UPDATE transactions
+                SET collector_name=?, banker_name=?, eur_received=?, pending_eur=?, status=?, received_date=?, picked_by=?
+                WHERE id=?
+                """,
+                (
+                    collector_name,
+                    banker_name,
+                    new_received,
+                    pending,
+                    status,
+                    str(date.today()),
+                    "Admin",
+                    transaction_id,
+                ),
+            )
+            flash("Transaction updated and payment recorded successfully.", "success")
+        else:
+            cur.execute(
+                """
+                UPDATE transactions
+                SET collector_name=?, banker_name=?
+                WHERE id=?
+                """,
+                (
+                    collector_name,
+                    banker_name,
+                    transaction_id,
+                ),
+            )
+            flash("Transaction assignments updated successfully.", "success")
+
         conn.commit()
         database.bump_app_revision()
-        flash("Payment recorded successfully.", "success")
     except Exception as exc:
         conn.rollback()
-        flash(f"Error recording payment: {exc}", "error")
+        flash(f"Error updating transaction: {exc}", "error")
     finally:
         conn.close()
 
