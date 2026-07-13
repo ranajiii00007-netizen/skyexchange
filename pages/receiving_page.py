@@ -67,7 +67,7 @@ class AutoCompleteEntry(tk.Entry):
         if not self.popup:
             self.popup = tk.Toplevel(self)
             self.popup.wm_overrideredirect(True)
-            frame = tk.Frame(self.popup, borderwidth=22, relief="solid")
+            frame = tk.Frame(self.popup, borderwidth=1, relief="solid")
             frame.pack(fill="both", expand=True)
             self.listbox = tk.Listbox(frame, height=6)
             scrollbar = tk.Scrollbar(frame)
