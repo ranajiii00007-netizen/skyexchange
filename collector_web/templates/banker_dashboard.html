@@ -290,7 +290,7 @@ function openBankModal(btn) {
   
   if (attachmentUrl && attachmentUrl !== 'None' && attachmentUrl !== '') {
     const isImage = /\.(jpg|jpeg|png|gif)$/i.test(attachmentUrl);
-    const fullUrl = '/static/' + attachmentUrl;
+    const fullUrl = '/' + attachmentUrl;
     
     if (isImage) {
       attachmentDiv.innerHTML = `
@@ -333,7 +333,7 @@ function openCompleteModal(btn) {
   
   if (attachmentUrl && attachmentUrl !== 'None' && attachmentUrl !== '') {
     const isImage = /\.(jpg|jpeg|png|gif)$/i.test(attachmentUrl);
-    const fullUrl = '/static/' + attachmentUrl;
+    const fullUrl = '/' + attachmentUrl;
     
     if (isImage) {
       attachmentDiv.innerHTML = `

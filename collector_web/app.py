@@ -96,6 +96,25 @@ def custom_static_uploads(filename):
     else:
         return send_from_directory(os.path.join(app.static_folder, "uploads"), filename)
 
+@app.route("/uploads/<path:filename>")
+def serve_uploads_from_db(filename):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT mime_type, data FROM uploaded_files WHERE filename=?", (filename,))
+        row = cur.fetchone()
+        if row:
+            mime_type, encoded_data = row
+            file_data = base64.b64decode(encoded_data)
+            return Response(file_data, mimetype=mime_type)
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+    # Fallback to local files
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
 @app.route("/manifest_customer.json")
 def manifest_customer():
     return send_from_directory(app.static_folder, "manifest_customer.json", mimetype="application/json")
