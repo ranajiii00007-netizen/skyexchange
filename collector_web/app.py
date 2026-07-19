@@ -176,8 +176,7 @@ def ensure_database_ready():
     if is_vercel() and not database.using_postgres():
         raise RuntimeError("DATABASE_URL is not configured in Vercel.")
 
-    if not is_vercel():
-        database.create_tables()
+    database.create_tables()
 
     _DATABASE_READY = True
 
