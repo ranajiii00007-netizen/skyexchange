@@ -336,6 +336,7 @@
           <th>Received EUR</th>
           <th>Target Bank Details</th>
           <th>Notes</th>
+          <th>Payment Receipt</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -363,13 +364,20 @@
               </td>
               <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ tx.notes or '' }}">{{ tx.notes or '' }}</td>
               <td>
+                {% if tx.banker_proof_attachment %}
+                  <a href="/{{ tx.banker_proof_attachment }}" target="_blank" class="badge badge-open" style="text-decoration: none; background: rgba(76, 175, 80, 0.15); color: #4caf50;">📎 View Receipt</a>
+                {% else %}
+                  <span style="color: var(--muted); font-size: 12px;">No proof</span>
+                {% endif %}
+              </td>
+              <td>
                 <span class="badge badge-closed">COMPLETED</span>
               </td>
             </tr>
           {% endfor %}
         {% else %}
           <tr>
-            <td colspan="11" style="text-align: center; color: var(--muted); padding: 16px;">No completed trades found.</td>
+            <td colspan="12" style="text-align: center; color: var(--muted); padding: 16px;">No completed trades found.</td>
           </tr>
         {% endif %}
       </tbody>

@@ -502,6 +502,9 @@ def create_tables():
     if not _column_exists(cur, "transactions", "bank_account_attachment"):
         cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_attachment TEXT")
 
+    if not _column_exists(cur, "transactions", "banker_proof_attachment"):
+        cur.execute("ALTER TABLE transactions ADD COLUMN banker_proof_attachment TEXT")
+
 
     if not _column_exists(cur, "banker_payments", "total_usd_snapshot"):
         cur.execute("ALTER TABLE banker_payments ADD COLUMN total_usd_snapshot REAL DEFAULT 0")

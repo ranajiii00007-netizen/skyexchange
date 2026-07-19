@@ -161,6 +161,7 @@
               <th style="text-align: right;">EUR Paid</th>
               <th style="text-align: right;">USD Equivalent</th>
               <th>Receiving Account</th>
+              <th>Receipt</th>
               <th>Status</th>
             </tr>
           </thead>
@@ -188,13 +189,20 @@
                     {% endif %}
                   </td>
                   <td>
+                    {% if tx.banker_proof_attachment %}
+                      <a href="/{{ tx.banker_proof_attachment }}" target="_blank" class="badge badge-open" style="text-decoration: none; background: rgba(76, 175, 80, 0.15); color: #4caf50;">📎 Receipt</a>
+                    {% else %}
+                      <span style="color: var(--muted); font-size: 12px;">No proof</span>
+                    {% endif %}
+                  </td>
+                  <td>
                     <span class="badge badge-closed">COMPLETED</span>
                   </td>
                 </tr>
               {% endfor %}
             {% else %}
               <tr>
-                <td colspan="9" style="text-align: center; color: var(--muted); padding: 20px 0;">No completed payments found.</td>
+                <td colspan="10" style="text-align: center; color: var(--muted); padding: 20px 0;">No completed payments found.</td>
               </tr>
             {% endif %}
           </tbody>
@@ -270,7 +278,11 @@
     <div id="complete-modal-attachment" style="margin-bottom: 20px; text-align: center;">
     </div>
 
-    <form id="complete-payment-form" action="" method="POST">
+    <form id="complete-payment-form" action="" method="POST" enctype="multipart/form-data">
+      <label style="display: block; margin-top: 15px; margin-bottom: 15px;">
+        <span style="font-weight: 600; font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Upload Payment Proof / Transfer Receipt (Optional):</span>
+        <input type="file" name="payment_proof" accept="image/*,application/pdf" style="padding: 6px; border: 1px solid var(--border); border-radius: 6px; width: 100%; box-sizing: border-box; background: var(--bg-card);">
+      </label>
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button type="button" class="btn btn-secondary" onclick="closeCompleteModal()">Cancel</button>
         <button type="submit" class="btn btn-success" style="font-weight: 600;">✅ Yes, I have completed the transfer</button>

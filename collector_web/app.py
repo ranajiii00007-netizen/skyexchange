@@ -465,7 +465,7 @@ def customer_dashboard():
     # Fetch customer's completed transactions
     cur.execute(
         """
-        SELECT id, deal_date, received_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, notes, status, bank_account_details, bank_account_attachment
+        SELECT id, deal_date, received_date, target_currency, exchange_rate, foreign_amount, eur_expected, eur_received, notes, status, bank_account_details, bank_account_attachment, banker_proof_attachment
         FROM transactions
         WHERE LOWER(customer_name)=LOWER(?) AND status='CLOSED'
         ORDER BY id DESC
@@ -475,7 +475,7 @@ def customer_dashboard():
     received_rows = [dict(
         id=r[0], deal_date=r[1], received_date=r[2], target_currency=r[3], exchange_rate=r[4], foreign_amount=r[5],
         eur_expected=r[6], eur_received=r[7], notes=r[8], status=r[9],
-        bank_account_details=r[10], bank_account_attachment=r[11]
+        bank_account_details=r[10], bank_account_attachment=r[11], banker_proof_attachment=r[12]
     ) for r in cur.fetchall()]
 
     # Fetch customer's saved bank accounts
@@ -876,7 +876,7 @@ def banker_dashboard():
     cur.execute(
         """
         SELECT id, deal_date, target_currency, foreign_amount, customer_name, status, notes, 
-               bank_account_details, bank_account_attachment, eur_expected, eur_received, pending_eur 
+               bank_account_details, bank_account_attachment, eur_expected, eur_received, pending_eur, banker_proof_attachment 
         FROM transactions 
         WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY deal_date DESC, id DESC
@@ -889,7 +889,7 @@ def banker_dashboard():
     overall_total_usd = 0.0
     currency_totals = {}
 
-    for tx_id, deal_date, currency, amount, customer_name, status, notes, ac_details, ac_attachment, eur_expected, eur_received, pending_eur in tx_rows:
+    for tx_id, deal_date, currency, amount, customer_name, status, notes, ac_details, ac_attachment, eur_expected, eur_received, pending_eur, banker_proof_attachment in tx_rows:
         c_rates = rates_by_currency.get(currency, [])
         rate = get_banker_rate(c_rates, currency, deal_date)
         usd = (amount / rate) if rate else 0.0
@@ -904,7 +904,8 @@ def banker_dashboard():
             id=tx_id, date=deal_date, currency=currency, amount=amount, rate=rate, usd=usd,
             customer_name=customer_name, status=status, notes=notes,
             bank_account_details=ac_details, bank_account_attachment=ac_attachment,
-            eur_expected=eur_expected, eur_received=eur_received, pending_eur=pending_eur
+            eur_expected=eur_expected, eur_received=eur_received, pending_eur=pending_eur,
+            banker_proof_attachment=banker_proof_attachment
         ))
 
     # Calculate overall paid USD
@@ -1013,14 +1014,35 @@ def banker_transaction_complete(transaction_id):
 
         eur_expected = float(row[0] or 0)
         
+        # Handle file upload if present
+        banker_proof_attachment = None
+        file = request.files.get("payment_proof")
+        if file and file.filename and allowed_file(file.filename):
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            unique_name = f"{uuid.uuid4().hex}.{ext}"
+            
+            # Save to database
+            save_uploaded_file(file, unique_name)
+            
+            # Optionally save to disk (local dev fallback)
+            if not is_vercel_env:
+                try:
+                    file.seek(0)
+                    filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+                    file.save(filepath)
+                except Exception:
+                    pass
+                    
+            banker_proof_attachment = f"uploads/{unique_name}"
+
         # Mark as completed
         cur.execute(
             """
             UPDATE transactions
-            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?
+            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?, banker_proof_attachment=?
             WHERE id=?
             """,
-            (eur_expected, str(date.today()), transaction_id),
+            (eur_expected, str(date.today()), banker_proof_attachment, transaction_id),
         )
         conn.commit()
         database.bump_app_revision()
@@ -2456,7 +2478,7 @@ def admin_transactions():
     query = """
         SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
-               picked_by, notes, transaction_type, received_date
+               picked_by, notes, transaction_type, received_date, bank_account_details, bank_account_attachment, banker_proof_attachment
         FROM transactions 
         WHERE 1=1
     """
@@ -2506,7 +2528,8 @@ def admin_transactions():
     transactions = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
         exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
-        status=r[10], deal_date=r[11], picked_by=r[12], notes=r[13], transaction_type=r[14], received_date=r[15]
+        status=r[10], deal_date=r[11], picked_by=r[12], notes=r[13], transaction_type=r[14], received_date=r[15],
+        bank_account_details=r[16], bank_account_attachment=r[17], banker_proof_attachment=r[18]
     ) for r in cur.fetchall()]
     
     conn.close()
