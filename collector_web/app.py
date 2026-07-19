@@ -65,10 +65,17 @@ def save_uploaded_file(file, filename):
     conn = db()
     cur = conn.cursor()
     try:
-        cur.execute(
-            "INSERT OR REPLACE INTO uploaded_files (filename, mime_type, data) VALUES (?, ?, ?)",
-            (filename, mime_type, encoded_data)
-        )
+        cur.execute("SELECT 1 FROM uploaded_files WHERE filename=?", (filename,))
+        if cur.fetchone():
+            cur.execute(
+                "UPDATE uploaded_files SET mime_type=?, data=? WHERE filename=?",
+                (mime_type, encoded_data, filename)
+            )
+        else:
+            cur.execute(
+                "INSERT INTO uploaded_files (filename, mime_type, data) VALUES (?, ?, ?)",
+                (filename, mime_type, encoded_data)
+            )
         conn.commit()
     finally:
         conn.close()
