@@ -730,12 +730,19 @@ def banker_logout():
 @app.route("/banker/dashboard")
 @banker_required
 def banker_dashboard():
-    banker_name = session["banker_name"]
+    banker_name = clean_banker_name(session["banker_name"])
     conn = db()
     cur = conn.cursor()
 
     # Fetch banker details
-    cur.execute("SELECT phone, bank_name, city, status FROM bankers WHERE LOWER(name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT phone, bank_name, city, status 
+        FROM bankers 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
+        """,
+        ('%2520', '%20', banker_name),
+    )
     banker_row = cur.fetchone()
     banker_details = {}
     if banker_row:
@@ -745,16 +752,24 @@ def banker_dashboard():
     cur.execute("""
         SELECT id, payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
         FROM banker_payments 
-        WHERE LOWER(banker_name)=LOWER(?) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date DESC, id DESC
-    """, (banker_name,))
+    """, ('%2520', '%20', banker_name))
     payments = [dict(
         id=r[0], payment_date=r[1], paid_usd=r[2], 
         total_usd_snapshot=r[3], remaining_usd_snapshot=r[4]
     ) for r in cur.fetchall()]
 
     # Fetch banker rates
-    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT currency_code, rate_date, rate 
+        FROM banker_currency_rates 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
+        ORDER BY rate_date ASC
+        """,
+        ('%2520', '%20', banker_name),
+    )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
     for currency, r_date, rate in rates_raw:
@@ -766,10 +781,10 @@ def banker_dashboard():
         SELECT id, deal_date, target_currency, foreign_amount, customer_name, status, notes, 
                bank_account_details, bank_account_attachment, eur_expected, eur_received, pending_eur 
         FROM transactions 
-        WHERE LOWER(banker_name)=LOWER(?) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY deal_date DESC, id DESC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     tx_rows = cur.fetchall()
 
@@ -796,23 +811,57 @@ def banker_dashboard():
         ))
 
     # Calculate overall paid USD
-    cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT SUM(paid_usd) 
+        FROM banker_payments 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
+        """,
+        ('%2520', '%20', banker_name),
+    )
     overall_paid_usd = cur.fetchone()[0] or 0.0
     overall_remaining_usd = overall_total_usd - overall_paid_usd
 
     # Get today's banker currency rates (active rates)
     # Get active currencies assigned to banker
-    cur.execute("SELECT currency_code FROM banker_currencies WHERE LOWER(banker_name)=LOWER(?) ORDER BY currency_code", (banker_name,))
+    cur.execute(
+        """
+        SELECT currency_code 
+        FROM banker_currencies 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
+        ORDER BY currency_code
+        """,
+        ('%2520', '%20', banker_name),
+    )
     assigned_currencies = [row[0] for row in cur.fetchall()]
 
     current_rates = {}
     for code in assigned_currencies:
-        cur.execute("SELECT rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) AND currency_code=? AND rate_date=?", (banker_name, code, str(date.today())))
+        cur.execute(
+            """
+            SELECT rate 
+            FROM banker_currency_rates 
+            WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
+              AND currency_code=? 
+              AND rate_date=?
+            """,
+            ('%2520', '%20', banker_name, code, str(date.today())),
+        )
         row = cur.fetchone()
         if row:
             current_rates[code] = float(row[0])
         else:
-            cur.execute("SELECT rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) AND currency_code=? ORDER BY rate_date DESC, id DESC LIMIT 1", (banker_name, code))
+            cur.execute(
+                """
+                SELECT rate 
+                FROM banker_currency_rates 
+                WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
+                  AND currency_code=? 
+                ORDER BY rate_date DESC, id DESC 
+                LIMIT 1
+                """,
+                ('%2520', '%20', banker_name, code),
+            )
             row = cur.fetchone()
             current_rates[code] = float(row[0]) if row else 1.0
 
@@ -843,7 +892,7 @@ def banker_dashboard():
 @app.route("/banker/transaction/<int:transaction_id>/complete", methods=["POST"])
 @banker_required
 def banker_transaction_complete(transaction_id):
-    banker_name = session["banker_name"]
+    banker_name = clean_banker_name(session["banker_name"])
     conn = db()
     cur = conn.cursor()
     try:
@@ -855,9 +904,9 @@ def banker_transaction_complete(transaction_id):
             """
             SELECT eur_expected, status
             FROM transactions
-            WHERE id=? AND LOWER(banker_name)=LOWER(?) AND status='OPEN'
+            WHERE id=? AND LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) AND status='OPEN'
             """ + lock_sql,
-            (transaction_id, banker_name),
+            (transaction_id, '%2520', '%20', banker_name),
         )
         row = cur.fetchone()
         if not row:
@@ -1619,10 +1668,10 @@ def recalculate_banker_payments(cur, banker_name):
         """
         SELECT id, payment_date, paid_usd 
         FROM banker_payments 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date ASC, id ASC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     payments = cur.fetchall()
     
@@ -1631,10 +1680,10 @@ def recalculate_banker_payments(cur, banker_name):
         """
         SELECT deal_date, target_currency, foreign_amount 
         FROM transactions 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY deal_date ASC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     txs = cur.fetchall()
     
@@ -1643,10 +1692,10 @@ def recalculate_banker_payments(cur, banker_name):
         """
         SELECT currency_code, rate_date, rate 
         FROM banker_currency_rates 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY rate_date ASC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
@@ -1694,9 +1743,9 @@ def admin_banker_details(banker_name):
     cur.execute("""
         SELECT id, payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
         FROM banker_payments 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date DESC, id DESC
-    """, (banker_name,))
+    """, ('%2520', '%20', banker_name))
     payments = [dict(
         id=r[0], payment_date=r[1], paid_usd=r[2], 
         total_usd_snapshot=r[3], remaining_usd_snapshot=r[4]
@@ -1707,10 +1756,10 @@ def admin_banker_details(banker_name):
         """
         SELECT currency_code, rate_date, rate 
         FROM banker_currency_rates 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY rate_date ASC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
@@ -1721,9 +1770,9 @@ def admin_banker_details(banker_name):
     tx_query = """
         SELECT deal_date, target_currency, foreign_amount 
         FROM transactions 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
     """
-    tx_params = [banker_name]
+    tx_params = ['%2520', '%20', banker_name]
     if date_from:
         tx_query += " AND deal_date >= ?"
         tx_params.append(date_from)
@@ -1758,9 +1807,9 @@ def admin_banker_details(banker_name):
         """
         SELECT deal_date, target_currency, foreign_amount 
         FROM transactions 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     all_txs = cur.fetchall()
     overall_total_usd = 0.0
@@ -1774,9 +1823,9 @@ def admin_banker_details(banker_name):
         """
         SELECT SUM(paid_usd) 
         FROM banker_payments 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     overall_paid_usd = cur.fetchone()[0] or 0.0
     overall_remaining_usd = overall_total_usd - overall_paid_usd
@@ -1878,9 +1927,9 @@ def admin_banker_details_pdf(banker_name):
         """
         SELECT phone, bank_name, city 
         FROM bankers 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     banker_row = cur.fetchone()
     banker_info = dict(phone=banker_row[0], bank_name=banker_row[1], city=banker_row[2]) if banker_row else {}
@@ -1889,9 +1938,9 @@ def admin_banker_details_pdf(banker_name):
     cur.execute("""
         SELECT payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
         FROM banker_payments 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date ASC, id ASC
-    """, (banker_name,))
+    """, ('%2520', '%20', banker_name))
     payments = [dict(
         payment_date=r[0], paid_usd=r[1], 
         total_usd_snapshot=r[2], remaining_usd_snapshot=r[3]
@@ -1902,10 +1951,10 @@ def admin_banker_details_pdf(banker_name):
         """
         SELECT currency_code, rate_date, rate 
         FROM banker_currency_rates 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) 
         ORDER BY rate_date ASC
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
@@ -1916,9 +1965,9 @@ def admin_banker_details_pdf(banker_name):
     tx_query = """
         SELECT deal_date, target_currency, foreign_amount 
         FROM transactions 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
     """
-    tx_params = [banker_name]
+    tx_params = ['%2520', '%20', banker_name]
     if date_from:
         tx_query += " AND deal_date >= ?"
         tx_params.append(date_from)
@@ -1953,9 +2002,9 @@ def admin_banker_details_pdf(banker_name):
         """
         SELECT deal_date, target_currency, foreign_amount 
         FROM transactions 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     all_txs = cur.fetchall()
     overall_total_usd = 0.0
@@ -1969,9 +2018,9 @@ def admin_banker_details_pdf(banker_name):
         """
         SELECT SUM(paid_usd) 
         FROM banker_payments 
-        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
         """,
-        (banker_name,),
+        ('%2520', '%20', banker_name),
     )
     overall_paid_usd = cur.fetchone()[0] or 0.0
     overall_remaining_usd = overall_total_usd - overall_paid_usd
