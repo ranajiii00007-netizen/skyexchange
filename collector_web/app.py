@@ -16,6 +16,7 @@ from flask import (
     url_for,
     send_file,
     send_from_directory,
+    Response,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -92,8 +93,8 @@ def custom_static_uploads(filename):
             mime_type, encoded_data = row
             file_data = base64.b64decode(encoded_data)
             return Response(file_data, mimetype=mime_type)
-    except Exception:
-        pass
+    except Exception as e:
+        app.logger.error(f"Error serving custom static upload {filename}: {e}")
     finally:
         conn.close()
 
@@ -114,8 +115,8 @@ def serve_uploads_from_db(filename):
             mime_type, encoded_data = row
             file_data = base64.b64decode(encoded_data)
             return Response(file_data, mimetype=mime_type)
-    except Exception:
-        pass
+    except Exception as e:
+        app.logger.error(f"Error serving upload from db {filename}: {e}")
     finally:
         conn.close()
 
