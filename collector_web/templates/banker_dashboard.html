@@ -114,13 +114,23 @@
                   <td style="text-align: right; font-weight: 600; color: var(--muted); font-size: 13px;">${{ tx.usd | money }}</td>
                   <td>
                     {% if tx.bank_account_details %}
-                      <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
+                      <button type="button" class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" 
+                              data-details="{{ tx.bank_account_details }}" 
+                              data-attachment="{{ tx.bank_account_attachment or '' }}" 
+                              onclick="openBankModal(this)">
+                        🔍 View A/C
+                      </button>
                     {% else %}
                       <span style="color: var(--muted); font-size: 12px;">—</span>
                     {% endif %}
                   </td>
                   <td style="text-align: center;">
-                    <button type="button" class="btn btn-success" style="padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;" onclick="openCompleteModal({{ tx.id }}, '{{ tx.eur_expected | money }}', {{ (tx.bank_account_details or '') | tojson }}, '{{ tx.bank_account_attachment or '' }}')">
+                    <button type="button" class="btn btn-success" style="padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer;" 
+                            data-id="{{ tx.id }}"
+                            data-eur="{{ tx.eur_expected | money }}"
+                            data-details="{{ tx.bank_account_details or '' }}"
+                            data-attachment="{{ tx.bank_account_attachment or '' }}"
+                            onclick="openCompleteModal(this)">
                       ✅ Mark Completed
                     </button>
                   </td>
@@ -167,7 +177,12 @@
                   <td style="text-align: right; font-weight: 600; color: var(--brand);">${{ tx.usd | money }}</td>
                   <td>
                     {% if tx.bank_account_details %}
-                      <button class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" onclick="openBankModal({{ tx.bank_account_details | tojson }}, '{{ tx.bank_account_attachment or '' }}')">🔍 View A/C</button>
+                      <button type="button" class="btn btn-warning" style="padding: 4px 8px; font-size: 11px; cursor: pointer; color: #fff;" 
+                              data-details="{{ tx.bank_account_details }}" 
+                              data-attachment="{{ tx.bank_account_attachment or '' }}" 
+                              onclick="openBankModal(this)">
+                        🔍 View A/C
+                      </button>
                     {% else %}
                       <span style="color: var(--muted); font-size: 12px;">—</span>
                     {% endif %}
@@ -265,7 +280,10 @@
 </div>
 
 <script>
-function openBankModal(details, attachmentUrl) {
+function openBankModal(btn) {
+  const details = btn.getAttribute('data-details') || '';
+  const attachmentUrl = btn.getAttribute('data-attachment') || '';
+  
   document.getElementById('bank-modal-content').innerText = details;
   const attachmentDiv = document.getElementById('bank-modal-attachment');
   attachmentDiv.innerHTML = '';
@@ -298,7 +316,12 @@ function closeBankModal() {
   document.getElementById('bank-details-modal').style.display = 'none';
 }
 
-function openCompleteModal(txId, eurExpected, details, attachmentUrl) {
+function openCompleteModal(btn) {
+  const txId = btn.getAttribute('data-id');
+  const eurExpected = btn.getAttribute('data-eur');
+  const details = btn.getAttribute('data-details') || '';
+  const attachmentUrl = btn.getAttribute('data-attachment') || '';
+  
   document.getElementById('complete-eur-display').innerText = '€' + eurExpected;
   document.getElementById('complete-modal-details').innerText = details || 'No receiving account details provided.';
   
