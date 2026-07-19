@@ -52,11 +52,45 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 if not is_vercel_env:
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+import base64
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def save_uploaded_file(file, filename):
+    file_data = file.read()
+    mime_type = file.mimetype or "application/octet-stream"
+    encoded_data = base64.b64encode(file_data).decode("utf-8")
+    
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT OR REPLACE INTO uploaded_files (filename, mime_type, data) VALUES (?, ?, ?)",
+            (filename, mime_type, encoded_data)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
 @app.route("/static/uploads/<path:filename>")
 def custom_static_uploads(filename):
+    # Try fetching from DB first
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT mime_type, data FROM uploaded_files WHERE filename=?", (filename,))
+        row = cur.fetchone()
+        if row:
+            mime_type, encoded_data = row
+            file_data = base64.b64decode(encoded_data)
+            return Response(file_data, mimetype=mime_type)
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+    # Fallback to local files
     if is_vercel_env:
         return send_from_directory("/tmp", filename)
     else:
@@ -486,8 +520,19 @@ def customer_bank_accounts_save():
     if file and file.filename and allowed_file(file.filename):
         ext = file.filename.rsplit(".", 1)[1].lower()
         unique_name = f"{uuid.uuid4().hex}.{ext}"
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
-        file.save(filepath)
+        
+        # Save to database
+        save_uploaded_file(file, unique_name)
+        
+        # Optionally save to disk (local dev fallback)
+        if not is_vercel_env:
+            try:
+                file.seek(0)
+                filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+                file.save(filepath)
+            except Exception:
+                pass
+                
         attachment_path = f"uploads/{unique_name}"
 
     conn = db()
@@ -635,8 +680,19 @@ def customer_transaction_new():
                 if file and file.filename and allowed_file(file.filename):
                     ext = file.filename.rsplit(".", 1)[1].lower()
                     unique_name = f"{uuid.uuid4().hex}.{ext}"
-                    filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
-                    file.save(filepath)
+                    
+                    # Save to database
+                    save_uploaded_file(file, unique_name)
+                    
+                    # Optionally save to disk (local dev fallback)
+                    if not is_vercel_env:
+                        try:
+                            file.seek(0)
+                            filepath = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
+                            file.save(filepath)
+                        except Exception:
+                            pass
+                            
                     bank_account_attachment = f"uploads/{unique_name}"
 
                 # Save if user checked "Save this account"

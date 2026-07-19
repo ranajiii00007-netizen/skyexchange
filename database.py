@@ -688,6 +688,14 @@ def create_tables():
     ON manager_admins(username)
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS uploaded_files (
+        filename TEXT PRIMARY KEY,
+        mime_type TEXT,
+        data TEXT
+    )
+    """)
+
     conn.commit()
     conn.close()
 
