@@ -88,7 +88,7 @@
         </label>
         <label style="grid-column: 1 / -1;">
           Account Details File/Photo (Optional)
-          <input name="new_attachment" type="file" accept="image/*,application/pdf" style="padding: 4px; border: 1px solid var(--border); border-radius: 4px; width: 100%; box-sizing: border-box; background: var(--bg-card);">
+          <input name="new_attachment" type="file" accept="image/*,application/pdf" style="padding: 4px; border: 1px solid var(--border); border-radius: 4px; width: 100%; box-sizing: border-box; background: var(--bg-card);" onchange="updateNewBankFieldsRequired()">
         </label>
         <label style="grid-column: 1 / -1; min-height: 80px;">
           Additional Payment Notes (Optional)
@@ -245,7 +245,7 @@
       
       <label>
         Proof File/Photo (Optional)
-        <input type="file" name="attachment" accept="image/*,application/pdf" style="padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); width: 100%; box-sizing: border-box;">
+        <input type="file" name="attachment" accept="image/*,application/pdf" style="padding: 4px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); width: 100%; box-sizing: border-box;" onchange="updateBankAccountRequired()">
         <span id="ac-attachment-info" style="font-size: 11px; color: var(--muted); display: block; margin-top: 2px;"></span>
       </label>
       
@@ -433,6 +433,50 @@ function toggleNewBankAccountFields() {
   }
 }
 
+function updateBankAccountRequired() {
+  const fileInput = document.getElementsByName('attachment')[0];
+  const existingAttachment = document.getElementById('ac-existing-attachment').value;
+  const hasFile = (fileInput && fileInput.files.length > 0) || (existingAttachment && existingAttachment !== '');
+  
+  const bankNameInput = document.getElementById('ac-bank-name');
+  const holderInput = document.getElementById('ac-holder-name');
+  const numberInput = document.getElementById('ac-number');
+  
+  if (hasFile) {
+    bankNameInput.removeAttribute('required');
+    holderInput.removeAttribute('required');
+    numberInput.removeAttribute('required');
+  } else {
+    bankNameInput.setAttribute('required', '');
+    holderInput.setAttribute('required', '');
+    numberInput.setAttribute('required', '');
+  }
+}
+
+function updateNewBankFieldsRequired() {
+  const choice = document.getElementById('tx-bank-account-choice').value;
+  if (choice !== '') {
+    return; // Already handled by toggleNewBankAccountFields
+  }
+  
+  const fileInput = document.getElementsByName('new_attachment')[0];
+  const hasFile = fileInput && fileInput.files.length > 0;
+  
+  const bankNameInput = document.getElementById('new-bank-name');
+  const holderInput = document.getElementById('new-holder-name');
+  const numberInput = document.getElementById('new-ac-number');
+  
+  if (hasFile) {
+    bankNameInput.removeAttribute('required');
+    holderInput.removeAttribute('required');
+    numberInput.removeAttribute('required');
+  } else {
+    bankNameInput.setAttribute('required', '');
+    holderInput.setAttribute('required', '');
+    numberInput.setAttribute('required', '');
+  }
+}
+
 function editBankAccount(ac) {
   document.getElementById('ac-form-title').innerText = '✏️ Edit Saved Account';
   document.getElementById('ac-id').value = ac.id;
@@ -450,6 +494,7 @@ function editBankAccount(ac) {
   } else {
     document.getElementById('ac-attachment-info').innerText = '';
   }
+  updateBankAccountRequired();
 }
 
 function clearBankAccountForm() {
@@ -464,11 +509,13 @@ function clearBankAccountForm() {
   document.getElementById('ac-notes').value = '';
   document.getElementById('ac-existing-attachment').value = '';
   document.getElementById('ac-attachment-info').innerText = '';
+  updateBankAccountRequired();
 }
 
 // Run on load
 document.addEventListener("DOMContentLoaded", function() {
   toggleNewBankAccountFields();
+  updateBankAccountRequired();
 });
 </script>
 

@@ -537,12 +537,20 @@ def customer_bank_accounts_save():
     routing_code = request.form.get("routing_code", "").strip() or None
     notes = request.form.get("notes", "").strip() or None
 
-    if not bank_name or not account_holder_name or not account_number:
-        flash("Bank Name, Holder Name, and Account Number are required.", "error")
-        return redirect(url_for("customer_dashboard"))
-
     attachment_path = request.form.get("existing_attachment", "") or None
     file = request.files.get("attachment")
+    
+    # If no file uploaded and no existing attachment, require the fields
+    if not (file and file.filename) and not attachment_path:
+        if not bank_name or not account_holder_name or not account_number:
+            flash("Bank Name, Holder Name, and Account Number are required when no proof image is uploaded.", "error")
+            return redirect(url_for("customer_dashboard"))
+            
+    # Default values if fields are empty but file is present
+    if not bank_name: bank_name = "Image Attached"
+    if not account_holder_name: account_holder_name = "Image Attached"
+    if not account_number: account_number = "Image Attached"
+
     if file and file.filename and allowed_file(file.filename):
         ext = file.filename.rsplit(".", 1)[1].lower()
         unique_name = f"{uuid.uuid4().hex}.{ext}"
@@ -694,15 +702,12 @@ def customer_transaction_new():
             new_routing_code = request.form.get("new_routing_code", "").strip() or None
             new_notes = request.form.get("new_notes", "").strip() or None
 
-            if new_bank_name and new_account_holder_name and new_account_number:
-                bank_account_details = f"Bank: {new_bank_name}\nHolder: {new_account_holder_name}\nA/C: {new_account_number}"
-                if new_iban: bank_account_details += f"\nIBAN: {new_iban}"
-                if new_swift_code: bank_account_details += f"\nSWIFT: {new_swift_code}"
-                if new_routing_code: bank_account_details += f"\nRouting: {new_routing_code}"
-                if new_notes: bank_account_details += f"\nNotes: {new_notes}"
+            file = request.files.get("new_attachment")
+            
+            has_fields = bool(new_bank_name and new_account_holder_name and new_account_number)
+            has_file = bool(file and file.filename)
 
-                # Handle upload
-                file = request.files.get("new_attachment")
+            if has_fields or has_file:
                 if file and file.filename and allowed_file(file.filename):
                     ext = file.filename.rsplit(".", 1)[1].lower()
                     unique_name = f"{uuid.uuid4().hex}.{ext}"
@@ -721,6 +726,16 @@ def customer_transaction_new():
                             
                     bank_account_attachment = f"uploads/{unique_name}"
 
+                if has_fields:
+                    bank_account_details = f"Bank: {new_bank_name}\nHolder: {new_account_holder_name}\nA/C: {new_account_number}"
+                    if new_iban: bank_account_details += f"\nIBAN: {new_iban}"
+                    if new_swift_code: bank_account_details += f"\nSWIFT: {new_swift_code}"
+                    if new_routing_code: bank_account_details += f"\nRouting: {new_routing_code}"
+                    if new_notes: bank_account_details += f"\nNotes: {new_notes}"
+                else:
+                    bank_account_details = "See attached image"
+                    if new_notes: bank_account_details += f"\nNotes: {new_notes}"
+
                 # Save if user checked "Save this account"
                 save_for_future = request.form.get("save_for_future") == "1"
                 if save_for_future:
@@ -729,7 +744,7 @@ def customer_transaction_new():
                         INSERT INTO customer_bank_accounts (customer_name, bank_name, account_holder_name, account_number, iban, swift_code, routing_code, notes, attachment_path, status, created_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
                         """,
-                        (customer_name, new_bank_name, new_account_holder_name, new_account_number, new_iban, new_swift_code, new_routing_code, new_notes, bank_account_attachment, str(date.today()))
+                        (customer_name, new_bank_name or "Image Attached", new_account_holder_name or "Image Attached", new_account_number or "Image Attached", new_iban, new_swift_code, new_routing_code, new_notes, bank_account_attachment, str(date.today()))
                     )
                     conn.commit()
 
