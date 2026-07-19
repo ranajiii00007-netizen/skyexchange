@@ -2180,6 +2180,43 @@ def admin_currencies_add():
     return redirect(url_for("admin_rates"))
 
 
+@app.route("/admin/currencies/delete/<int:currency_id>", methods=["POST"])
+@admin_required
+def admin_currencies_delete(currency_id):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT code FROM currencies WHERE id=?", (currency_id,))
+        row = cur.fetchone()
+        if not row:
+            flash("Currency not found.", "error")
+            return redirect(url_for("admin_rates"))
+        
+        currency_code = row[0]
+        
+        # Check if the currency code is in use by transactions
+        cur.execute("SELECT COUNT(*) FROM transactions WHERE target_currency=?", (currency_code,))
+        if cur.fetchone()[0] > 0:
+            # In use: deactivate
+            cur.execute("UPDATE currencies SET status=0 WHERE id=?", (currency_id,))
+            flash(f"Currency {currency_code} is in use by transactions. Deactivated it instead of deleting.", "success")
+        else:
+            # Not in use: delete completely
+            cur.execute("DELETE FROM currencies WHERE id=?", (currency_id,))
+            cur.execute("DELETE FROM currency_rates WHERE currency_code=?", (currency_code,))
+            cur.execute("DELETE FROM banker_currency_rates WHERE currency_code=?", (currency_code,))
+            flash(f"Currency {currency_code} deleted successfully.", "success")
+            
+        conn.commit()
+        database.bump_app_revision()
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error deleting currency: {exc}", "error")
+    finally:
+        conn.close()
+    return redirect(url_for("admin_rates"))
+
+
 @app.route("/admin/customer_rates/save", methods=["POST"])
 @admin_required
 def admin_customer_rates_save():
