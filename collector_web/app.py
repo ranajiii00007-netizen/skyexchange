@@ -1588,6 +1588,18 @@ def admin_bankers_delete(banker_id):
 
 
 # Banker details helpers
+def clean_banker_name(name):
+    import urllib.parse
+    if not name:
+        return ""
+    for _ in range(3):
+        if "%" in name:
+            name = urllib.parse.unquote(name)
+        else:
+            break
+    return name.strip()
+
+
 def get_banker_rate(rates, currency, deal_date):
     matched_rate = None
     for r_date, r_val in rates:
@@ -1601,16 +1613,41 @@ def get_banker_rate(rates, currency, deal_date):
 
 
 def recalculate_banker_payments(cur, banker_name):
+    banker_name = clean_banker_name(banker_name)
     # Fetch all payments
-    cur.execute("SELECT id, payment_date, paid_usd FROM banker_payments WHERE LOWER(banker_name)=LOWER(?) ORDER BY payment_date ASC, id ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT id, payment_date, paid_usd 
+        FROM banker_payments 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        ORDER BY payment_date ASC, id ASC
+        """,
+        (banker_name,),
+    )
     payments = cur.fetchall()
     
     # Fetch all transactions
-    cur.execute("SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?) ORDER BY deal_date ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT deal_date, target_currency, foreign_amount 
+        FROM transactions 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        ORDER BY deal_date ASC
+        """,
+        (banker_name,),
+    )
     txs = cur.fetchall()
     
     # Fetch banker rates
-    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT currency_code, rate_date, rate 
+        FROM banker_currency_rates 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        ORDER BY rate_date ASC
+        """,
+        (banker_name,),
+    )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
     for currency, r_date, rate in rates_raw:
@@ -1636,6 +1673,7 @@ def recalculate_banker_payments(cur, banker_name):
 @app.route("/admin/bankers/details/<banker_name>")
 @admin_required
 def admin_banker_details(banker_name):
+    banker_name = clean_banker_name(banker_name)
     period = request.args.get("period", "").strip() or None
     date_from = request.args.get("date_from", "").strip() or None
     date_to = request.args.get("date_to", "").strip() or None
@@ -1656,7 +1694,7 @@ def admin_banker_details(banker_name):
     cur.execute("""
         SELECT id, payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
         FROM banker_payments 
-        WHERE LOWER(banker_name)=LOWER(?) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date DESC, id DESC
     """, (banker_name,))
     payments = [dict(
@@ -1665,14 +1703,26 @@ def admin_banker_details(banker_name):
     ) for r in cur.fetchall()]
     
     # Fetch banker rates for conversion lookup
-    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT currency_code, rate_date, rate 
+        FROM banker_currency_rates 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        ORDER BY rate_date ASC
+        """,
+        (banker_name,),
+    )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
     for currency, r_date, rate in rates_raw:
         rates_by_currency.setdefault(currency, []).append((r_date, rate))
         
     # Fetch transactions (with date filters for display)
-    tx_query = "SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)"
+    tx_query = """
+        SELECT deal_date, target_currency, foreign_amount 
+        FROM transactions 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+    """
     tx_params = [banker_name]
     if date_from:
         tx_query += " AND deal_date >= ?"
@@ -1704,7 +1754,14 @@ def admin_banker_details(banker_name):
         ))
         
     # Calculate overall total expected USD (ignoring filters)
-    cur.execute("SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT deal_date, target_currency, foreign_amount 
+        FROM transactions 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        """,
+        (banker_name,),
+    )
     all_txs = cur.fetchall()
     overall_total_usd = 0.0
     for deal_date, currency, amount in all_txs:
@@ -1713,7 +1770,14 @@ def admin_banker_details(banker_name):
         overall_total_usd += (amount / rate) if rate else 0.0
         
     # Calculate overall paid USD
-    cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT SUM(paid_usd) 
+        FROM banker_payments 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        """,
+        (banker_name,),
+    )
     overall_paid_usd = cur.fetchone()[0] or 0.0
     overall_remaining_usd = overall_total_usd - overall_paid_usd
     
@@ -1744,6 +1808,7 @@ def admin_banker_details(banker_name):
 @app.route("/admin/bankers/details/<banker_name>/pay", methods=["POST"])
 @admin_required
 def admin_banker_details_pay(banker_name):
+    banker_name = clean_banker_name(banker_name)
     payment_date = request.form.get("payment_date", "").strip() or str(date.today())
     paid_usd = float(request.form.get("paid_usd", "0"))
     
@@ -1774,6 +1839,7 @@ def admin_banker_details_pay(banker_name):
 @app.route("/admin/bankers/details/<banker_name>/pay/<int:payment_id>/delete", methods=["POST"])
 @admin_required
 def admin_banker_details_delete_pay(banker_name, payment_id):
+    banker_name = clean_banker_name(banker_name)
     conn = db()
     cur = conn.cursor()
     try:
@@ -1794,6 +1860,7 @@ def admin_banker_details_delete_pay(banker_name, payment_id):
 @app.route("/admin/bankers/details/<banker_name>/pdf")
 @admin_required
 def admin_banker_details_pdf(banker_name):
+    banker_name = clean_banker_name(banker_name)
     date_from = request.args.get("date_from", "").strip() or None
     date_to = request.args.get("date_to", "").strip() or None
     period = request.args.get("period", "").strip() or None
@@ -1807,7 +1874,14 @@ def admin_banker_details_pdf(banker_name):
     cur = conn.cursor()
     
     # Fetch banker details/info
-    cur.execute("SELECT phone, bank_name, city FROM bankers WHERE name=?", (banker_name,))
+    cur.execute(
+        """
+        SELECT phone, bank_name, city 
+        FROM bankers 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        """,
+        (banker_name,),
+    )
     banker_row = cur.fetchone()
     banker_info = dict(phone=banker_row[0], bank_name=banker_row[1], city=banker_row[2]) if banker_row else {}
     
@@ -1815,7 +1889,7 @@ def admin_banker_details_pdf(banker_name):
     cur.execute("""
         SELECT payment_date, paid_usd, total_usd_snapshot, remaining_usd_snapshot 
         FROM banker_payments 
-        WHERE LOWER(banker_name)=LOWER(?) 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
         ORDER BY payment_date ASC, id ASC
     """, (banker_name,))
     payments = [dict(
@@ -1824,14 +1898,26 @@ def admin_banker_details_pdf(banker_name):
     ) for r in cur.fetchall()]
     
     # Fetch banker rates
-    cur.execute("SELECT currency_code, rate_date, rate FROM banker_currency_rates WHERE LOWER(banker_name)=LOWER(?) ORDER BY rate_date ASC", (banker_name,))
+    cur.execute(
+        """
+        SELECT currency_code, rate_date, rate 
+        FROM banker_currency_rates 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?)) 
+        ORDER BY rate_date ASC
+        """,
+        (banker_name,),
+    )
     rates_raw = cur.fetchall()
     rates_by_currency = {}
     for currency, r_date, rate in rates_raw:
         rates_by_currency.setdefault(currency, []).append((r_date, rate))
         
     # Fetch transactions (with date filters for display)
-    tx_query = "SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)"
+    tx_query = """
+        SELECT deal_date, target_currency, foreign_amount 
+        FROM transactions 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+    """
     tx_params = [banker_name]
     if date_from:
         tx_query += " AND deal_date >= ?"
@@ -1863,7 +1949,14 @@ def admin_banker_details_pdf(banker_name):
         ))
         
     # Calculate overall total expected USD (ignoring filters)
-    cur.execute("SELECT deal_date, target_currency, foreign_amount FROM transactions WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT deal_date, target_currency, foreign_amount 
+        FROM transactions 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        """,
+        (banker_name,),
+    )
     all_txs = cur.fetchall()
     overall_total_usd = 0.0
     for deal_date, currency, amount in all_txs:
@@ -1872,7 +1965,14 @@ def admin_banker_details_pdf(banker_name):
         overall_total_usd += (amount / rate) if rate else 0.0
         
     # Calculate overall paid USD
-    cur.execute("SELECT SUM(paid_usd) FROM banker_payments WHERE LOWER(banker_name)=LOWER(?)", (banker_name,))
+    cur.execute(
+        """
+        SELECT SUM(paid_usd) 
+        FROM banker_payments 
+        WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, '%2520', ' '), '%20', ' '))) = LOWER(TRIM(?))
+        """,
+        (banker_name,),
+    )
     overall_paid_usd = cur.fetchone()[0] or 0.0
     overall_remaining_usd = overall_total_usd - overall_paid_usd
     
@@ -2081,7 +2181,7 @@ def admin_customer_rates_delete(rate_id):
 @app.route("/admin/banker_rates/save", methods=["POST"])
 @admin_required
 def admin_banker_rates_save():
-    banker_name = request.form.get("banker_name", "").strip()
+    banker_name = clean_banker_name(request.form.get("banker_name", ""))
     code = request.form.get("currency_code", "").strip().upper()
     rate_date = request.form.get("rate_date", "").strip() or str(date.today())
     rate = float(request.form.get("rate", "0"))
@@ -2097,6 +2197,8 @@ def admin_banker_rates_save():
             "INSERT OR REPLACE INTO banker_currency_rates (banker_name, currency_code, rate, rate_date) VALUES (?, ?, ?, ?)",
             (banker_name, code, rate, rate_date)
         )
+        conn.commit()
+        recalculate_banker_payments(cur, banker_name)
         conn.commit()
         database.bump_app_revision()
         flash("Banker rate recorded successfully.", "success")
@@ -2114,8 +2216,17 @@ def admin_banker_rates_delete(rate_id):
     conn = db()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT banker_name FROM banker_currency_rates WHERE id=?", (rate_id,))
+        row = cur.fetchone()
+        banker_name = row[0] if row else None
+
         cur.execute("DELETE FROM banker_currency_rates WHERE id=?", (rate_id,))
         conn.commit()
+
+        if banker_name:
+            recalculate_banker_payments(cur, banker_name)
+            conn.commit()
+
         database.bump_app_revision()
         flash("Banker specific rate record deleted.", "success")
     except Exception as exc:
