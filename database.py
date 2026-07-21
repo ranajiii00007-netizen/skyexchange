@@ -218,10 +218,10 @@ class PostgresCursor:
                     """
                     SELECT ordinal_position - 1, column_name
                     FROM information_schema.columns
-                    WHERE table_schema = 'public' AND table_name = %s
+                    WHERE table_schema = 'public' AND LOWER(table_name) = %s
                     ORDER BY ordinal_position
                     """,
-                    (table_name,),
+                    (table_name.lower(),),
                 )
             except Exception:
                 _safe_rollback(self._conn)
@@ -299,8 +299,24 @@ def _id_column_type():
 
 
 def _column_exists(cur, table_name, column_name):
-    cur.execute(f"PRAGMA table_info({table_name})")
-    return column_name in {row[1] for row in cur.fetchall()}
+    if using_postgres():
+        cur.execute(
+            """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE LOWER(table_name) = %s AND LOWER(column_name) = %s
+            """,
+            (table_name.lower(), column_name.lower()),
+        )
+        return cur.fetchone() is not None
+    else:
+        cur.execute(f"PRAGMA table_info({table_name})")
+def _safe_add_column(cur, table_name, column_name, column_type_def):
+    try:
+        if not _column_exists(cur, table_name, column_name):
+            cur.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type_def}")
+    except Exception:
+        pass
 
 
 def create_tables():
@@ -479,41 +495,17 @@ def create_tables():
     )
     """)
 
-    if not _column_exists(cur, "transactions", "received_date"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN received_date TEXT")
+    _safe_add_column(cur, "transactions", "received_date", "TEXT")
+    _safe_add_column(cur, "transactions", "picked_by", "TEXT")
+    _safe_add_column(cur, "transactions", "transaction_type", "TEXT NOT NULL DEFAULT 'REGULAR'")
+    _safe_add_column(cur, "transactions", "bank_account_id", "INTEGER")
+    _safe_add_column(cur, "transactions", "bank_account_details", "TEXT")
+    _safe_add_column(cur, "transactions", "bank_account_attachment", "TEXT")
+    _safe_add_column(cur, "transactions", "banker_proof_attachment", "TEXT")
+    _safe_add_column(cur, "transactions", "banker_status", "TEXT DEFAULT 'PENDING'")
 
-    if not _column_exists(cur, "transactions", "picked_by"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN picked_by TEXT")
-
-    if not _column_exists(cur, "transactions", "transaction_type"):
-        cur.execute(
-            """
-            ALTER TABLE transactions
-            ADD COLUMN transaction_type TEXT NOT NULL DEFAULT 'REGULAR'
-            """
-        )
-
-    if not _column_exists(cur, "transactions", "bank_account_id"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_id INTEGER")
-
-    if not _column_exists(cur, "transactions", "bank_account_details"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_details TEXT")
-
-    if not _column_exists(cur, "transactions", "bank_account_attachment"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN bank_account_attachment TEXT")
-
-    if not _column_exists(cur, "transactions", "banker_proof_attachment"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN banker_proof_attachment TEXT")
-
-    if not _column_exists(cur, "transactions", "banker_status"):
-        cur.execute("ALTER TABLE transactions ADD COLUMN banker_status TEXT DEFAULT 'PENDING'")
-
-
-    if not _column_exists(cur, "banker_payments", "total_usd_snapshot"):
-        cur.execute("ALTER TABLE banker_payments ADD COLUMN total_usd_snapshot REAL DEFAULT 0")
-
-    if not _column_exists(cur, "banker_payments", "remaining_usd_snapshot"):
-        cur.execute("ALTER TABLE banker_payments ADD COLUMN remaining_usd_snapshot REAL DEFAULT 0")
+    _safe_add_column(cur, "banker_payments", "total_usd_snapshot", "REAL DEFAULT 0")
+    _safe_add_column(cur, "banker_payments", "remaining_usd_snapshot", "REAL DEFAULT 0")
 
     cur.execute(f"""
     CREATE TABLE IF NOT EXISTS banker_notifications (
