@@ -50,6 +50,47 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB limit
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 
+def login_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("collector_name"):
+            return redirect(url_for("login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+def admin_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("admin_login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+def super_admin_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("is_admin") or session.get("admin_role") != "SUPER":
+            flash("This page is restricted to Super Admin only.", "error")
+            return redirect(url_for("admin_dashboard"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+def customer_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("customer_name"):
+            return redirect(url_for("customer_login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
+def banker_required(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not session.get("banker_name"):
+            return redirect(url_for("banker_login"))
+        return view_func(*args, **kwargs)
+    return wrapper
+
 # Make sure folder exists
 if not is_vercel_env:
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
