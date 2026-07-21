@@ -311,6 +311,9 @@ def _column_exists(cur, table_name, column_name):
         return cur.fetchone() is not None
     else:
         cur.execute(f"PRAGMA table_info({table_name})")
+        return column_name in {row[1] for row in cur.fetchall()}
+
+
 def _safe_add_column(cur, table_name, column_name, column_type_def):
     try:
         if not _column_exists(cur, table_name, column_name):
