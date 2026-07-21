@@ -123,6 +123,40 @@ def serve_uploads_from_db(filename):
     # Fallback to local files
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
+def notify_banker(banker_name, transaction_id, message):
+    if not banker_name:
+        return
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO banker_notifications (banker_name, transaction_id, message, is_read, created_at) VALUES (?, ?, ?, 0, ?)",
+            (banker_name, transaction_id, message, str(datetime.now().strftime("%Y-%m-%d %H:%M")))
+        )
+        conn.commit()
+    except Exception as e:
+        app.logger.error(f"Error creating banker notification: {e}")
+    finally:
+        conn.close()
+
+@app.route("/banker/notifications/read", methods=["POST"])
+@banker_required
+def banker_notifications_read():
+    banker_name = clean_banker_name(session["banker_name"])
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE banker_notifications SET is_read=1 WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))",
+            ('%2520', '%20', banker_name)
+        )
+        conn.commit()
+    except Exception as e:
+        pass
+    finally:
+        conn.close()
+    return jsonify({"success": True})
+
 @app.route("/manifest_customer.json")
 def manifest_customer():
     return send_from_directory(app.static_folder, "manifest_customer.json", mimetype="application/json")
@@ -963,6 +997,18 @@ def banker_dashboard():
             row = cur.fetchone()
             current_rates[code] = float(row[0]) if row else 1.0
 
+    # Fetch notifications for banker
+    try:
+        cur.execute(
+            "SELECT id, message, is_read, created_at, transaction_id FROM banker_notifications WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?)) ORDER BY id DESC LIMIT 20",
+            ('%2520', '%20', banker_name)
+        )
+        notifications = [dict(id=r[0], message=r[1], is_read=r[2], created_at=r[3], transaction_id=r[4]) for r in cur.fetchall()]
+        unread_count = sum(1 for n in notifications if n["is_read"] == 0)
+    except Exception:
+        notifications = []
+        unread_count = 0
+
     conn.close()
 
     summary = {
@@ -984,6 +1030,8 @@ def banker_dashboard():
         completed_txs=completed_txs,
         payments=payments,
         summary=summary,
+        notifications=notifications,
+        unread_count=unread_count,
     )
 
 
@@ -2650,6 +2698,8 @@ def admin_transactions_save():
                  eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
                  picked_by, notes, transaction_type, received_date, int(tx_id))
             )
+            if banker_name:
+                notify_banker(banker_name, int(tx_id), f"🔔 Trade #{tx_id} (€{eur_expected:.2f}) assigned to you!")
             flash("Deal modified successfully.", "success")
         else:
             cur.execute(
@@ -2663,6 +2713,9 @@ def admin_transactions_save():
                  eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
                  picked_by, notes, transaction_type, received_date)
             )
+            new_tx_id = cur.lastrowid
+            if banker_name and new_tx_id:
+                notify_banker(banker_name, new_tx_id, f"🔔 New trade #{new_tx_id} (€{eur_expected:.2f}) assigned to you!")
             flash("Deal created successfully.", "success")
             
         conn.commit()
@@ -3123,6 +3176,8 @@ def admin_receiving_pay(transaction_id):
                     transaction_id,
                 ),
             )
+            if banker_name:
+                notify_banker(banker_name, transaction_id, f"🔔 Trade #{transaction_id} (€{expected:.2f}) has been assigned to you!")
             flash("Transaction updated and payment recorded successfully.", "success")
         else:
             cur.execute(
@@ -3137,6 +3192,8 @@ def admin_receiving_pay(transaction_id):
                     transaction_id,
                 ),
             )
+            if banker_name:
+                notify_banker(banker_name, transaction_id, f"🔔 Trade #{transaction_id} has been assigned to you!")
             flash("Transaction assignments updated successfully.", "success")
 
         conn.commit()

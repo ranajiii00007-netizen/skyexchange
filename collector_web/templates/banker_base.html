@@ -51,12 +51,52 @@
     <!-- Main Content Area -->
     <div class="main-wrapper">
       <!-- Navbar -->
-      <nav class="top-nav">
+      <nav class="top-nav" style="position: relative;">
         <h2>{% block page_title %}Banker Dashboard{% endblock %}</h2>
-        <div class="nav-user">
+        <div class="nav-user" style="display: flex; align-items: center; gap: 15px;">
+          {% if notifications is defined %}
+          <div style="position: relative; cursor: pointer;" onclick="toggleNotificationMenu()">
+            <span style="font-size: 18px;">🔔</span>
+            {% if unread_count > 0 %}
+              <span id="notif-badge" style="position: absolute; top: -6px; right: -8px; background: #ef4444; color: white; font-size: 10px; font-weight: bold; border-radius: 10px; padding: 1px 5px;">{{ unread_count }}</span>
+            {% endif %}
+            
+            <div id="notif-dropdown" style="display: none; position: absolute; right: 0; top: 30px; width: 300px; background: var(--bg-card, #ffffff); border: 1px solid var(--border, #e2e8f0); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 1000; padding: 10px; max-height: 320px; overflow-y: auto;">
+              <div style="font-weight: 700; font-size: 13px; border-bottom: 1px solid var(--border, #e2e8f0); padding-bottom: 6px; margin-bottom: 8px; color: var(--brand);">
+                🔔 Trade Notifications
+              </div>
+              {% if notifications %}
+                {% for n in notifications %}
+                  <div style="font-size: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border, #e2e8f0); color: var(--text-primary); text-align: left;">
+                    <div>{{ n.message }}</div>
+                    <small style="color: var(--muted, #64748b); font-size: 10px;">{{ n.created_at }}</small>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div style="font-size: 12px; color: var(--muted); text-align: center; padding: 10px 0;">No notifications yet.</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
           <span style="font-weight: 600; color: var(--brand);">👤 Banker: {{ banker_name }}</span>
         </div>
       </nav>
+
+      <script>
+      function toggleNotificationMenu() {
+        const drop = document.getElementById('notif-dropdown');
+        if (!drop) return;
+        const isHidden = drop.style.display === 'none';
+        drop.style.display = isHidden ? 'block' : 'none';
+        
+        if (isHidden) {
+          const badge = document.getElementById('notif-badge');
+          if (badge) badge.style.display = 'none';
+          fetch('/banker/notifications/read', { method: 'POST' }).catch(() => {});
+        }
+      }
+      </script>
 
       <!-- Content -->
       <main class="main-content">

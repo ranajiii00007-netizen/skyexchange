@@ -515,6 +515,17 @@ def create_tables():
     if not _column_exists(cur, "banker_payments", "remaining_usd_snapshot"):
         cur.execute("ALTER TABLE banker_payments ADD COLUMN remaining_usd_snapshot REAL DEFAULT 0")
 
+    cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS banker_notifications (
+        id {id_type},
+        banker_name TEXT NOT NULL,
+        transaction_id INTEGER,
+        message TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+    )
+    """)
+
     cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_currency_rates
     ON currency_rates(currency_code, rate_date)

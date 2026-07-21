@@ -218,6 +218,11 @@
                 <td>{{ tx.collector_name or 'N/A' }}</td>
                 <td>
                   {{ tx.banker_name or 'N/A' }}
+                  {% if tx.banker_name %}
+                    <div style="margin-top: 2px;">
+                      <a href="https://wa.me/?text=Hello%20{{ tx.banker_name }}!%20Trade%20%23{{ tx.id }}%20(EUR%20{{ tx.eur_expected | money }})%20has%20been%20assigned%20to%20you." target="_blank" style="font-size: 10px; text-decoration: none; background: #25d366; color: white; padding: 1px 5px; border-radius: 4px; font-weight: 600; display: inline-block;">📲 WhatsApp</a>
+                    </div>
+                  {% endif %}
                   {% if tx.banker_status == 'COMPLETED BY BANKER' or tx.banker_proof_attachment %}
                     <div style="margin-top: 2px;"><span class="badge" style="background: rgba(76, 175, 80, 0.15); color: #4caf50; font-size: 9px; padding: 2px 4px; display: inline-block;">COMPLETED BY BANKER</span></div>
                   {% else %}
