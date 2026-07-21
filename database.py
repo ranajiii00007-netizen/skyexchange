@@ -526,6 +526,15 @@ def create_tables():
     )
     """)
 
+    cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS banker_push_subscriptions (
+        id {id_type},
+        banker_name TEXT NOT NULL,
+        subscription_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """)
+
     cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_currency_rates
     ON currency_rates(currency_code, rate_date)

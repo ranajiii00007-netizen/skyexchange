@@ -123,6 +123,40 @@ def serve_uploads_from_db(filename):
     # Fallback to local files
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
+VAPID_PUBLIC_KEY = "BD_CKTpFxvX7xn75fdRWlVJ064UNgUAIcMyQiglC2Y3ngAWBcmpoqFZZrijbpQatx8NvI0kRc3tkddfgBeECVJc"
+VAPID_PRIVATE_KEY_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vapid_private.pem")
+
+def send_web_push(banker_name, title, message, url="/banker/dashboard"):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT id, subscription_json 
+            FROM banker_push_subscriptions 
+            WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
+            """,
+            ('%2520', '%20', banker_name)
+        )
+        rows = cur.fetchall()
+        for row in rows:
+            sub_id, sub_json_str = row[0], row[1]
+            try:
+                from pywebpush import webpush, WebPushException
+                sub_info = json.loads(sub_json_str)
+                webpush(
+                    subscription_info=sub_info,
+                    data=json.dumps({"title": title, "body": message, "url": url}),
+                    vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                    vapid_claims={"sub": "mailto:admin@skyexchange.com"}
+                )
+            except Exception as ex:
+                app.logger.warning(f"Web Push notification error for subscription {sub_id}: {ex}")
+    except Exception as exc:
+        app.logger.error(f"Error querying banker subscriptions: {exc}")
+    finally:
+        conn.close()
+
 def notify_banker(banker_name, transaction_id, message):
     if not banker_name:
         return
@@ -138,6 +172,46 @@ def notify_banker(banker_name, transaction_id, message):
         app.logger.error(f"Error creating banker notification: {e}")
     finally:
         conn.close()
+
+    # Trigger Lock-Screen Web Push Notification
+    send_web_push(banker_name, "Sky Exchange — Trade Assigned", message, url="/banker/dashboard")
+
+@app.route("/banker/push-subscribe", methods=["POST"])
+@banker_required
+def banker_push_subscribe():
+    banker_name = clean_banker_name(session["banker_name"])
+    data = request.get_json(silent=True) or {}
+    subscription = data.get("subscription")
+    if not subscription:
+        return jsonify({"error": "No subscription data"}), 400
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        sub_json = json.dumps(subscription)
+        cur.execute(
+            """
+            SELECT id FROM banker_push_subscriptions 
+            WHERE LOWER(TRIM(REPLACE(REPLACE(banker_name, ?, ' '), ?, ' '))) = LOWER(TRIM(?))
+              AND subscription_json = ?
+            """,
+            ('%2520', '%20', banker_name, sub_json)
+        )
+        if not cur.fetchone():
+            cur.execute(
+                """
+                INSERT INTO banker_push_subscriptions (banker_name, subscription_json, updated_at)
+                VALUES (?, ?, ?)
+                """,
+                (banker_name, sub_json, str(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            )
+            conn.commit()
+    except Exception as exc:
+        app.logger.error(f"Error saving push subscription: {exc}")
+    finally:
+        conn.close()
+
+    return jsonify({"success": True})
 
 @app.route("/banker/notifications/read", methods=["POST"])
 @banker_required
@@ -1032,6 +1106,7 @@ def banker_dashboard():
         summary=summary,
         notifications=notifications,
         unread_count=unread_count,
+        vapid_public_key=VAPID_PUBLIC_KEY,
     )
 
 

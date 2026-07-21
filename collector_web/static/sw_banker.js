@@ -62,3 +62,43 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+self.addEventListener('push', event => {
+  let data = { title: 'Sky Exchange — Banker Portal', body: '🔔 New Trade Assigned!' };
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+  const options = {
+    body: data.body,
+    icon: '/static/icon_banker_192.png',
+    badge: '/static/icon_banker_192.png',
+    vibrate: [300, 100, 300, 100, 300],
+    data: { url: data.url || '/banker/dashboard' },
+    tag: 'banker-trade-assigned',
+    renotify: true
+  };
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Sky Exchange Banker Portal', options)
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (let i = 0; i < windowClients.length; i++) {
+        let client = windowClients[i];
+        if (client.url.includes('/banker') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(event.notification.data.url || '/banker/dashboard');
+      }
+    })
+  );
+});
