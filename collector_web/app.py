@@ -2336,6 +2336,36 @@ def admin_currencies_delete(currency_id):
     return redirect(url_for("admin_rates"))
 
 
+@app.route("/admin/currencies/<int:currency_id>/status", methods=["POST"])
+@admin_required
+def admin_currencies_toggle_status(currency_id):
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT code, status FROM currencies WHERE id=?", (currency_id,))
+        row = cur.fetchone()
+        if not row:
+            flash("Currency not found.", "error")
+            return redirect(url_for("admin_rates"))
+            
+        code, current_status = row
+        new_status = 0 if current_status == 1 else 1
+        
+        cur.execute("UPDATE currencies SET status=? WHERE id=?", (new_status, currency_id))
+        conn.commit()
+        database.bump_app_revision()
+        
+        status_label = "activated" if new_status == 1 else "deactivated"
+        flash(f"Currency {code} {status_label} successfully.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Error updating currency status: {exc}", "error")
+    finally:
+        conn.close()
+        
+    return redirect(url_for("admin_rates"))
+
+
 @app.route("/admin/customer_rates/save", methods=["POST"])
 @admin_required
 def admin_customer_rates_save():

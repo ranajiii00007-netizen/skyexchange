@@ -57,9 +57,18 @@
                     {% endif %}
                   </td>
                   <td style="text-align: right;">
-                    <form action="{{ url_for('admin_currencies_delete', currency_id=cur.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete/deactivate this currency?');">
-                      <button type="submit" class="btn btn-danger" style="padding: 2px 6px; font-size: 11px;">Delete</button>
-                    </form>
+                    <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                      <form action="{{ url_for('admin_currencies_toggle_status', currency_id=cur.id) }}" method="POST" style="display:inline;">
+                        {% if cur.status == 1 %}
+                          <button type="submit" class="btn btn-warning" style="padding: 2px 6px; font-size: 11px;">Deactivate</button>
+                        {% else %}
+                          <button type="submit" class="btn btn-success" style="padding: 2px 6px; font-size: 11px; background: #4caf50; color: #fff;">Activate</button>
+                        {% endif %}
+                      </form>
+                      <form action="{{ url_for('admin_currencies_delete', currency_id=cur.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete/deactivate this currency?');">
+                        <button type="submit" class="btn btn-danger" style="padding: 2px 6px; font-size: 11px;">Delete</button>
+                      </form>
+                    </div>
                   </td>
                 </tr>
               {% endfor %}
