@@ -2,6 +2,7 @@ import os
 import sys
 import io
 import csv
+import json
 from datetime import date, timedelta, datetime
 from functools import wraps
 
@@ -127,6 +128,12 @@ VAPID_PUBLIC_KEY = "BD_CKTpFxvX7xn75fdRWlVJ064UNgUAIcMyQiglC2Y3ngAWBcmpoqFZZrijb
 VAPID_PRIVATE_KEY_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vapid_private.pem")
 
 def send_web_push(banker_name, title, message, url="/banker/dashboard"):
+    try:
+        from pywebpush import webpush, WebPushException
+    except Exception as e:
+        app.logger.warning(f"pywebpush not available: {e}")
+        return
+
     conn = db()
     cur = conn.cursor()
     try:
@@ -142,14 +149,14 @@ def send_web_push(banker_name, title, message, url="/banker/dashboard"):
         for row in rows:
             sub_id, sub_json_str = row[0], row[1]
             try:
-                from pywebpush import webpush, WebPushException
                 sub_info = json.loads(sub_json_str)
-                webpush(
-                    subscription_info=sub_info,
-                    data=json.dumps({"title": title, "body": message, "url": url}),
-                    vapid_private_key=VAPID_PRIVATE_KEY_PATH,
-                    vapid_claims={"sub": "mailto:admin@skyexchange.com"}
-                )
+                if os.path.exists(VAPID_PRIVATE_KEY_PATH):
+                    webpush(
+                        subscription_info=sub_info,
+                        data=json.dumps({"title": title, "body": message, "url": url}),
+                        vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                        vapid_claims={"sub": "mailto:admin@skyexchange.com"}
+                    )
             except Exception as ex:
                 app.logger.warning(f"Web Push notification error for subscription {sub_id}: {ex}")
     except Exception as exc:
