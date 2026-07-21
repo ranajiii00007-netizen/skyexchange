@@ -193,6 +193,9 @@
                 {% if tx.received_date %}
                   <div style="font-size: 10px; color: var(--muted);">on {{ tx.received_date }}</div>
                 {% endif %}
+                {% if tx.status == 'CLOSED' and (tx.picked_by or tx.collector_name or tx.banker_name) %}
+                  <div style="font-size: 10px; color: var(--text-secondary); font-weight: 500; margin-top: 2px;">by {{ tx.picked_by or tx.collector_name or tx.banker_name }}</div>
+                {% endif %}
                 {% if tx.banker_proof_attachment %}
                   <div style="margin-top: 4px;"><a href="/{{ tx.banker_proof_attachment }}" target="_blank" style="font-size: 11px; text-decoration: underline; color: #4caf50; font-weight: 600;">📎 Payout Receipt</a></div>
                 {% endif %}

@@ -1039,10 +1039,10 @@ def banker_transaction_complete(transaction_id):
         cur.execute(
             """
             UPDATE transactions
-            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?, banker_proof_attachment=?
+            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?, banker_proof_attachment=?, picked_by=?
             WHERE id=?
             """,
-            (eur_expected, str(date.today()), banker_proof_attachment, transaction_id),
+            (eur_expected, str(date.today()), banker_proof_attachment, f"Banker ({banker_name})", transaction_id),
         )
         conn.commit()
         database.bump_app_revision()
@@ -2598,8 +2598,14 @@ def admin_transactions_save():
 
         pending_eur = max(0.0, eur_expected - eur_received)
         status = "CLOSED" if pending_eur == 0 else "OPEN"
-        if status == "CLOSED" and not received_date:
-            received_date = str(date.today())
+        if status == "CLOSED":
+            if not received_date:
+                received_date = str(date.today())
+            if not picked_by:
+                admin_user = session.get("admin_username") or "Admin"
+                admin_role = session.get("admin_role") or "Admin"
+                role_label = "Admin" if admin_role == "SUPER" else "Manager"
+                picked_by = f"{role_label} ({admin_user})"
 
         if tx_id:
             cur.execute(
@@ -2980,7 +2986,7 @@ def admin_receiving():
     # Fetch received list
     received_query = """
         SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
-               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, received_date
+               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, received_date, picked_by
         FROM transactions 
         WHERE eur_received > 0 AND UPPER(status)='CLOSED'
     """
@@ -2988,7 +2994,7 @@ def admin_receiving():
     received_txs = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
         exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
-        status=r[10], deal_date=r[11], received_date=r[12]
+        status=r[10], deal_date=r[11], received_date=r[12], picked_by=r[13]
     ) for r in cur.fetchall()]
 
     conn.close()
@@ -3065,6 +3071,11 @@ def admin_receiving_pay(transaction_id):
             pending = expected - new_received
             status = "CLOSED" if pending == 0 else "OPEN"
 
+            admin_user = session.get("admin_username") or "Admin"
+            admin_role = session.get("admin_role") or "Admin"
+            role_label = "Admin" if admin_role == "SUPER" else "Manager"
+            closer_label = f"{role_label} ({admin_user})" if status == "CLOSED" else "Admin"
+
             cur.execute(
                 """
                 UPDATE transactions
@@ -3078,7 +3089,7 @@ def admin_receiving_pay(transaction_id):
                     pending,
                     status,
                     str(date.today()),
-                    "Admin",
+                    closer_label,
                     transaction_id,
                 ),
             )
@@ -3438,7 +3449,7 @@ def receive(transaction_id):
         cur.execute(
             """
             UPDATE transactions
-            SET eur_received=?, pending_eur=?, status=?, received_date=?
+            SET eur_received=?, pending_eur=?, status=?, received_date=?, picked_by=?
             WHERE id=? AND LOWER(collector_name)=LOWER(?)
             """,
             (
@@ -3446,6 +3457,7 @@ def receive(transaction_id):
                 pending,
                 status,
                 str(date.today()),
+                f"Collector ({collector_name})" if status == "CLOSED" else None,
                 transaction_id,
                 collector_name,
             ),
