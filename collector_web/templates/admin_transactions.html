@@ -185,7 +185,14 @@
               <td class="danger">€{{ tx.pending_eur | money }}</td>
               <td><strong>{{ tx.foreign_amount | money }} {{ tx.target_currency }}</strong> <br><small style="color: var(--muted); font-size:10px;">Rate: {{ tx.exchange_rate }}</small></td>
               <td>{{ tx.collector_name or 'N/A' }}</td>
-              <td>{{ tx.banker_name or 'N/A' }}</td>
+              <td>
+                {{ tx.banker_name or 'N/A' }}
+                {% if tx.banker_status == 'COMPLETED BY BANKER' or (tx.status == 'CLOSED' and tx.banker_proof_attachment) %}
+                  <div style="margin-top: 2px;"><span class="badge" style="background: rgba(76, 175, 80, 0.15); color: #4caf50; font-size: 9px; padding: 2px 4px; display: inline-block;">COMPLETED BY BANKER</span></div>
+                {% else %}
+                  <div style="margin-top: 2px;"><span class="badge" style="background: rgba(255, 179, 0, 0.15); color: #ffb300; font-size: 9px; padding: 2px 4px; display: inline-block;">PENDING</span></div>
+                {% endif %}
+              </td>
               <td>
                 <span class="badge {% if tx.status == 'OPEN' %}badge-open{% else %}badge-closed{% endif %}">
                   {{ tx.status }}

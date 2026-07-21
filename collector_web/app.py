@@ -754,8 +754,8 @@ def customer_transaction_new():
             INSERT INTO transactions (customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                                       eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
                                       picked_by, notes, transaction_type, received_date, bank_account_id, 
-                                      bank_account_details, bank_account_attachment)
-            VALUES (?, NULL, NULL, ?, ?, ?, 0.0, ?, ?, ?, ?, 'Customer Portal', ?, 'REGULAR', NULL, ?, ?, ?)
+                                      bank_account_details, bank_account_attachment, banker_status)
+            VALUES (?, NULL, NULL, ?, ?, ?, 0.0, ?, ?, ?, ?, 'Customer Portal', ?, 'REGULAR', NULL, ?, ?, ?, 'PENDING')
             """,
             (
                 customer_name,
@@ -1039,7 +1039,7 @@ def banker_transaction_complete(transaction_id):
         cur.execute(
             """
             UPDATE transactions
-            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?, banker_proof_attachment=?, picked_by=?
+            SET status='CLOSED', eur_received=?, pending_eur=0.0, received_date=?, banker_proof_attachment=?, picked_by=?, banker_status='COMPLETED BY BANKER'
             WHERE id=?
             """,
             (eur_expected, str(date.today()), banker_proof_attachment, f"Banker ({banker_name})", transaction_id),
@@ -2478,7 +2478,7 @@ def admin_transactions():
     query = """
         SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
-               picked_by, notes, transaction_type, received_date, bank_account_details, bank_account_attachment, banker_proof_attachment
+               picked_by, notes, transaction_type, received_date, bank_account_details, bank_account_attachment, banker_proof_attachment, banker_status
         FROM transactions 
         WHERE 1=1
     """
@@ -2529,7 +2529,7 @@ def admin_transactions():
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
         exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
         status=r[10], deal_date=r[11], picked_by=r[12], notes=r[13], transaction_type=r[14], received_date=r[15],
-        bank_account_details=r[16], bank_account_attachment=r[17], banker_proof_attachment=r[18]
+        bank_account_details=r[16], bank_account_attachment=r[17], banker_proof_attachment=r[18], banker_status=r[19]
     ) for r in cur.fetchall()]
     
     conn.close()
