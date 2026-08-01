@@ -61,10 +61,6 @@
       <input type="date" id="tx-date" name="deal_date" value="{{ today }}">
     </label>
 
-    <label>
-      Received Date
-      <input type="date" id="tx-received-date" name="received_date" value="">
-    </label>
 
     <label>
       Transaction Type
@@ -74,10 +70,6 @@
       </select>
     </label>
 
-    <label>
-      Picked By
-      <input type="text" id="tx-picked-by" name="picked_by" placeholder="e.g. Office Name">
-    </label>
 
     <label style="grid-column: span 2;">
       Notes
@@ -296,9 +288,11 @@ function editTx(tx) {
   document.getElementById('tx-banker-search').value = tx.banker_name || '';
   
   document.getElementById('tx-date').value = tx.deal_date;
-  document.getElementById('tx-received-date').value = tx.received_date;
+  const recDateEl = document.getElementById('tx-received-date');
+  if (recDateEl) recDateEl.value = tx.received_date || '';
   document.getElementById('tx-type').value = tx.transaction_type;
-  document.getElementById('tx-picked-by').value = tx.picked_by;
+  const pickedByEl = document.getElementById('tx-picked-by');
+  if (pickedByEl) pickedByEl.value = tx.picked_by || '';
   document.getElementById('tx-notes').value = tx.notes;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -321,9 +315,11 @@ function clearTxForm() {
   document.getElementById('tx-banker-search').value = '';
   
   document.getElementById('tx-date').value = '{{ today }}';
-  document.getElementById('tx-received-date').value = '';
+  const recDateEl = document.getElementById('tx-received-date');
+  if (recDateEl) recDateEl.value = '';
   document.getElementById('tx-type').value = 'REGULAR';
-  document.getElementById('tx-picked-by').value = '';
+  const pickedByEl = document.getElementById('tx-picked-by');
+  if (pickedByEl) pickedByEl.value = '';
   document.getElementById('tx-notes').value = '';
 }
 
