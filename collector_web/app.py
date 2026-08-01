@@ -3241,6 +3241,8 @@ def admin_receiving():
         "expected": sum(tx["eur_expected"] for tx in active_list),
         "received": sum(tx["eur_received"] for tx in active_list),
         "pending": sum(tx["pending_eur"] for tx in active_list),
+        "received_expected": sum(tx["eur_expected"] for tx in received_txs),
+        "received_count": len(received_txs),
     }
 
     filters = {

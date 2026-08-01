@@ -64,10 +64,6 @@
       </select>
     </label>
 
-    <label>
-      Picked By
-      <input type="text" name="picked_by" value="{{ filters.picked_by }}" placeholder="Search picked by...">
-    </label>
 
     <label>
       Received From
@@ -219,6 +215,27 @@
 <div id="received-tab" class="tab-content-panel" style="display: {% if active_tab == 'received' %}block{% else %}none{% endif %};">
   <div class="card">
     <h3>✅ Received/Completed Deals</h3>
+
+    <!-- Summary Metrics for Completed Deals -->
+    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 15px;">
+      <div class="stat-box">
+        <span>Total Deals</span>
+        <h3>{{ summary.received_count }}</h3>
+      </div>
+      <div class="stat-box success">
+        <span>Closed Deals</span>
+        <h3>{{ summary.received_count }}</h3>
+      </div>
+      <div class="stat-box">
+        <span>Expected EUR</span>
+        <h3>€{{ summary.received_expected | money }}</h3>
+      </div>
+      <div class="stat-box success">
+        <span>Received EUR</span>
+        <h3>€{{ summary.received | money }}</h3>
+      </div>
+    </div>
+
     <div class="table-container">
       <table>
         <thead>
