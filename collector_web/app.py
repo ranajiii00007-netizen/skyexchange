@@ -3235,14 +3235,19 @@ def admin_receiving():
 
     conn.close()
 
-    # Summary totals for active list
-    active_list = pending_txs if active_tab == "pending" else received_txs
+    # Summary totals across all matched deals
+    open_count = len(pending_txs)
+    closed_count = len(received_txs)
+    total_count = open_count + closed_count
+    all_txs = pending_txs + received_txs
+
     summary = {
-        "expected": sum(tx["eur_expected"] for tx in active_list),
-        "received": sum(tx["eur_received"] for tx in active_list),
-        "pending": sum(tx["pending_eur"] for tx in active_list),
-        "received_expected": sum(tx["eur_expected"] for tx in received_txs),
-        "received_count": len(received_txs),
+        "total_deals": total_count,
+        "closed_deals": closed_count,
+        "open_deals": open_count,
+        "expected": sum(tx["eur_expected"] for tx in all_txs),
+        "received": sum(tx["eur_received"] for tx in all_txs),
+        "pending": sum(tx["pending_eur"] for tx in pending_txs),
     }
 
     filters = {

@@ -88,8 +88,20 @@
   </form>
 </div>
 
-<!-- Metrics summary -->
-<div class="stats-grid">
+<!-- Metrics summary (Single Line: 6 Metrics) -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px;">
+  <div class="stat-box">
+    <span>Total Deals</span>
+    <h3>{{ summary.total_deals }}</h3>
+  </div>
+  <div class="stat-box success">
+    <span>Closed Deals</span>
+    <h3>{{ summary.closed_deals }}</h3>
+  </div>
+  <div class="stat-box warning" style="border-top: 3px solid #ffb300;">
+    <span style="color: #ffb300;">Open Deals</span>
+    <h3 style="color: #ffb300;">{{ summary.open_deals }}</h3>
+  </div>
   <div class="stat-box">
     <span>Expected EUR</span>
     <h3>€{{ summary.expected | money }}</h3>
@@ -215,26 +227,6 @@
 <div id="received-tab" class="tab-content-panel" style="display: {% if active_tab == 'received' %}block{% else %}none{% endif %};">
   <div class="card">
     <h3>✅ Received/Completed Deals</h3>
-
-    <!-- Summary Metrics for Completed Deals -->
-    <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-bottom: 15px;">
-      <div class="stat-box">
-        <span>Total Deals</span>
-        <h3>{{ summary.received_count }}</h3>
-      </div>
-      <div class="stat-box success">
-        <span>Closed Deals</span>
-        <h3>{{ summary.received_count }}</h3>
-      </div>
-      <div class="stat-box">
-        <span>Expected EUR</span>
-        <h3>€{{ summary.received_expected | money }}</h3>
-      </div>
-      <div class="stat-box success">
-        <span>Received EUR</span>
-        <h3>€{{ summary.received | money }}</h3>
-      </div>
-    </div>
 
     <div class="table-container">
       <table>
