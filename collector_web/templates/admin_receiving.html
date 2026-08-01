@@ -11,12 +11,27 @@
 <!-- Search & Filter Card -->
 <div class="card">
   <h3>🔍 Filter Collections</h3>
-  <form id="receiving-filter-form" method="GET" class="grid-form" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+  <form id="receiving-filter-form" method="GET" class="grid-form" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
     <input type="hidden" id="active-receiving-tab" name="tab" value="{{ active_tab or 'pending' }}">
     
     <label>
-      Customer Name
-      <input type="text" id="filter-customer-search" name="customer" value="{{ filters.customer }}" placeholder="Type to search customer..." autocomplete="off">
+      Deal From
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+
+    <label>
+      Deal To
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+
+    <label>
+      Customer
+      <input type="text" id="filter-customer-search" name="customer" value="{{ filters.customer }}" placeholder="Search customer..." autocomplete="off">
+    </label>
+
+    <label>
+      Exclude Customer
+      <input type="text" name="exclude_customer" value="{{ filters.exclude_customer }}" placeholder="Exclude customer...">
     </label>
     
     <label>
@@ -50,18 +65,29 @@
     </label>
 
     <label>
-      From Date
-      <input type="date" name="date_from" value="{{ filters.date_from }}">
+      Picked By
+      <input type="text" name="picked_by" value="{{ filters.picked_by }}" placeholder="Search picked by...">
     </label>
 
     <label>
-      To Date
-      <input type="date" name="date_to" value="{{ filters.date_to }}">
+      Received From
+      <input type="date" name="received_from" value="{{ filters.received_from }}">
     </label>
 
-    <div class="grid-buttons" style="margin-top: 0; align-items: end;">
-      <button type="submit" class="btn">Filter</button>
+    <label>
+      Received To
+      <input type="date" name="received_to" value="{{ filters.received_to }}">
+    </label>
+
+    <div class="grid-buttons" style="grid-column: 1 / -1; margin-top: 5px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button type="submit" class="btn btn-primary">Search</button>
       <a href="{{ url_for('admin_receiving') }}" class="btn btn-secondary">Reset</a>
+      
+      <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-left: 10px;">Quick:</span>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="setQuickDateRange('today')">Today</button>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="setQuickDateRange('yesterday')">Yesterday</button>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="setQuickDateRange('this_week')">This Week</button>
+      <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="setQuickDateRange('this_month')">This Month</button>
     </div>
   </form>
 </div>
@@ -357,6 +383,46 @@ initAutocomplete(
   document.getElementById('filter-customer-search'),
   customerList
 );
+
+function setQuickDateRange(period) {
+  const today = new Date();
+  let fromDate = new Date();
+  let toDate = new Date();
+
+  if (period === 'today') {
+    fromDate = new Date();
+    toDate = new Date();
+  } else if (period === 'yesterday') {
+    fromDate.setDate(today.getDate() - 1);
+    toDate.setDate(today.getDate() - 1);
+  } else if (period === 'this_week') {
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    fromDate = new Date(today.setDate(diff));
+    toDate = new Date();
+  } else if (period === 'this_month') {
+    fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    toDate = new Date();
+  }
+
+  const formatDate = d => d.toISOString().split('T')[0];
+  const activeTab = document.getElementById('active-receiving-tab') ? document.getElementById('active-receiving-tab').value : 'pending';
+  
+  if (activeTab === 'received') {
+    const rFrom = document.querySelector('input[name="received_from"]');
+    const rTo = document.querySelector('input[name="received_to"]');
+    if (rFrom) rFrom.value = formatDate(fromDate);
+    if (rTo) rTo.value = formatDate(toDate);
+  } else {
+    const dFrom = document.querySelector('input[name="date_from"]');
+    const dTo = document.querySelector('input[name="date_to"]');
+    if (dFrom) dFrom.value = formatDate(fromDate);
+    if (dTo) dTo.value = formatDate(toDate);
+  }
+
+  const form = document.getElementById('receiving-filter-form');
+  if (form) form.submit();
+}
 </script>
 
 {% endblock %}

@@ -3137,11 +3137,15 @@ def get_reports_data(filters):
 @admin_required
 def admin_receiving():
     customer = request.args.get("customer", "").strip()
+    exclude_customer = request.args.get("exclude_customer", "").strip()
     collector = request.args.get("collector", "").strip()
     banker = request.args.get("banker", "").strip()
     currency = request.args.get("currency", "").strip()
+    picked_by = request.args.get("picked_by", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
+    received_from = request.args.get("received_from", "").strip()
+    received_to = request.args.get("received_to", "").strip()
     active_tab = request.args.get("tab", "pending").strip()
 
     conn = db()
@@ -3169,6 +3173,11 @@ def admin_receiving():
         for k in keywords:
             filter_clause += " AND LOWER(customer_name) LIKE ?"
             params.append(f"%{k}%")
+    if exclude_customer:
+        keywords = exclude_customer.lower().split()
+        for k in keywords:
+            filter_clause += " AND LOWER(customer_name) NOT LIKE ?"
+            params.append(f"%{k}%")
     if collector:
         filter_clause += " AND collector_name = ?"
         params.append(collector)
@@ -3178,12 +3187,23 @@ def admin_receiving():
     if currency:
         filter_clause += " AND target_currency = ?"
         params.append(currency)
+    if picked_by:
+        keywords = picked_by.lower().split()
+        for k in keywords:
+            filter_clause += " AND LOWER(COALESCE(picked_by, '')) LIKE ?"
+            params.append(f"%{k}%")
     if date_from:
         filter_clause += " AND deal_date >= ?"
         params.append(date_from)
     if date_to:
         filter_clause += " AND deal_date <= ?"
         params.append(date_to)
+    if received_from:
+        filter_clause += " AND received_date >= ?"
+        params.append(received_from)
+    if received_to:
+        filter_clause += " AND received_date <= ?"
+        params.append(received_to)
 
     # Fetch pending list
     pending_query = """
@@ -3224,8 +3244,9 @@ def admin_receiving():
     }
 
     filters = {
-        "customer": customer, "collector": collector, "banker": banker,
-        "currency": currency, "date_from": date_from, "date_to": date_to
+        "customer": customer, "exclude_customer": exclude_customer, "collector": collector, "banker": banker,
+        "currency": currency, "picked_by": picked_by, "date_from": date_from, "date_to": date_to,
+        "received_from": received_from, "received_to": received_to
     }
 
     return render_template(
@@ -3244,7 +3265,7 @@ def admin_receiving_pay(transaction_id):
 
     redirect_args = {
         key: request.args.get(key, "").strip()
-        for key in ("customer", "collector", "banker", "currency", "date_from", "date_to", "tab")
+        for key in ("customer", "exclude_customer", "collector", "banker", "currency", "picked_by", "date_from", "date_to", "received_from", "received_to", "tab")
         if request.args.get(key, "").strip()
     }
     redirect_args.setdefault("tab", "pending")
