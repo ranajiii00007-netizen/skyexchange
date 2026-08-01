@@ -136,7 +136,7 @@
 
     <div class="grid-buttons" style="margin-top: 0;">
       <button type="submit" class="btn">Filter</button>
-      <a href="{{ url_for('admin_transactions') }}" class="btn btn-secondary">Clear</a>
+      <a href="{{ url_for('admin_transactions') }}" class="btn btn-secondary">Reset</a>
     </div>
   </form>
 </div>
@@ -365,6 +365,18 @@ initAutocomplete(
   document.getElementById('filter-banker-search'),
   bankerList
 );
+
+document.addEventListener('DOMContentLoaded', function() {
+  const saveForm = document.querySelector('form[action*="/admin/transactions/save"]');
+  if (saveForm && window.location.search) {
+    saveForm.action = saveForm.action + window.location.search;
+  }
+  document.querySelectorAll('form[action*="/admin/transactions/delete/"]').forEach(function(delForm) {
+    if (window.location.search) {
+      delForm.action = delForm.action + window.location.search;
+    }
+  });
+});
 </script>
 
 {% endblock %}

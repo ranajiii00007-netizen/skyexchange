@@ -2849,7 +2849,12 @@ def admin_transactions_save():
     finally:
         conn.close()
         
-    return redirect(url_for("admin_transactions"))
+    redirect_args = {
+        key: request.args.get(key, "").strip()
+        for key in ("customer", "search", "collector", "banker", "status", "date_from", "date_to")
+        if request.args.get(key, "").strip()
+    }
+    return redirect(url_for("admin_transactions", **redirect_args))
 
 
 @app.route("/admin/transactions/delete/<int:transaction_id>", methods=["POST"])
@@ -2867,7 +2872,12 @@ def admin_transactions_delete(transaction_id):
         flash(f"Error deleting transaction record: {exc}", "error")
     finally:
         conn.close()
-    return redirect(url_for("admin_transactions"))
+    redirect_args = {
+        key: request.args.get(key, "").strip()
+        for key in ("customer", "search", "collector", "banker", "status", "date_from", "date_to")
+        if request.args.get(key, "").strip()
+    }
+    return redirect(url_for("admin_transactions", **redirect_args))
 
 
 # ==============================================================================
@@ -3234,10 +3244,10 @@ def admin_receiving_pay(transaction_id):
 
     redirect_args = {
         key: request.args.get(key, "").strip()
-        for key in ("customer", "collector", "banker", "currency", "date_from", "date_to")
+        for key in ("customer", "collector", "banker", "currency", "date_from", "date_to", "tab")
         if request.args.get(key, "").strip()
     }
-    redirect_args["tab"] = "pending"
+    redirect_args.setdefault("tab", "pending")
 
     amount = safe_float(amount_text)
 

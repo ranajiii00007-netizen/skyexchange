@@ -61,7 +61,7 @@
 
     <div class="grid-buttons" style="margin-top: 0; align-items: end;">
       <button type="submit" class="btn">Filter</button>
-      <a href="{{ url_for('admin_receiving') }}" class="btn btn-secondary">Clear</a>
+      <a href="{{ url_for('admin_receiving') }}" class="btn btn-secondary">Reset</a>
     </div>
   </form>
 </div>
@@ -330,7 +330,7 @@ function selectPendingTx(tx, rowElement) {
     // Enable submit
     const form = document.getElementById('payment-form');
     if (form) {
-      form.action = '/admin/receiving/pay/' + tx.id;
+      form.action = '/admin/receiving/pay/' + tx.id + window.location.search;
     }
 
     const submitBtn = document.getElementById('pay-submit-btn');
