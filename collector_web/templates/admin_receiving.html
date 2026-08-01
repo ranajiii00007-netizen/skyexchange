@@ -88,31 +88,31 @@
   </form>
 </div>
 
-<!-- Metrics summary (Single Line: 6 Metrics) -->
-<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px;">
-  <div class="stat-box">
+<!-- Metrics summary -->
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px;">
+  <div class="stat-box" style="padding: 16px; min-width: 0;">
     <span>Total Deals</span>
-    <h3>{{ summary.total_deals }}</h3>
+    <h3 style="font-size: clamp(1.2rem, 1.6vw, 1.6rem); margin-top: 4px;">{{ summary.total_deals }}</h3>
   </div>
-  <div class="stat-box success">
+  <div class="stat-box success" style="padding: 16px; min-width: 0;">
     <span>Closed Deals</span>
-    <h3>{{ summary.closed_deals }}</h3>
+    <h3 style="font-size: clamp(1.2rem, 1.6vw, 1.6rem); margin-top: 4px;">{{ summary.closed_deals }}</h3>
   </div>
-  <div class="stat-box warning" style="border-top: 3px solid #ffb300;">
+  <div class="stat-box warning" style="border-top: 3px solid #ffb300; padding: 16px; min-width: 0;">
     <span style="color: #ffb300;">Open Deals</span>
-    <h3 style="color: #ffb300;">{{ summary.open_deals }}</h3>
+    <h3 style="color: #ffb300; font-size: clamp(1.2rem, 1.6vw, 1.6rem); margin-top: 4px;">{{ summary.open_deals }}</h3>
   </div>
-  <div class="stat-box">
+  <div class="stat-box" style="padding: 16px; min-width: 0;">
     <span>Expected EUR</span>
-    <h3>€{{ summary.expected | money }}</h3>
+    <h3 style="font-size: clamp(1.05rem, 1.35vw, 1.5rem); margin-top: 4px;" title="€{{ summary.expected | money }}">€{{ summary.expected | money }}</h3>
   </div>
-  <div class="stat-box success">
+  <div class="stat-box success" style="padding: 16px; min-width: 0;">
     <span>Received EUR</span>
-    <h3>€{{ summary.received | money }}</h3>
+    <h3 style="font-size: clamp(1.05rem, 1.35vw, 1.5rem); margin-top: 4px;" title="€{{ summary.received | money }}">€{{ summary.received | money }}</h3>
   </div>
-  <div class="stat-box danger">
+  <div class="stat-box danger" style="padding: 16px; min-width: 0;">
     <span>Pending EUR</span>
-    <h3>€{{ summary.pending | money }}</h3>
+    <h3 style="font-size: clamp(1.05rem, 1.35vw, 1.5rem); margin-top: 4px;" title="€{{ summary.pending | money }}">€{{ summary.pending | money }}</h3>
   </div>
 </div>
 
