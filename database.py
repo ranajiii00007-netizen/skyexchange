@@ -530,36 +530,6 @@ def create_tables():
     )
     """)
 
-    cur.execute(f"""
-    CREATE TABLE IF NOT EXISTS wallet_transactions (
-        id {id_type},
-        transaction_date TEXT NOT NULL,
-        type TEXT NOT NULL,
-        amount REAL NOT NULL,
-        currency TEXT NOT NULL,
-        description TEXT,
-        added_by TEXT,
-        created_at TEXT NOT NULL
-    )
-    """)
-
-    cur.execute(f"""
-    CREATE TABLE IF NOT EXISTS payments (
-        id {id_type},
-        payment_date TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        party_type TEXT NOT NULL,
-        party_name TEXT NOT NULL,
-        amount REAL NOT NULL,
-        currency TEXT NOT NULL,
-        payment_method TEXT NOT NULL,
-        reference_no TEXT,
-        notes TEXT,
-        status TEXT DEFAULT 'COMPLETED',
-        created_at TEXT NOT NULL
-    )
-    """)
-
     cur.execute("""
     CREATE INDEX IF NOT EXISTS idx_currency_rates
     ON currency_rates(currency_code, rate_date)
