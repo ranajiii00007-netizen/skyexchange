@@ -969,6 +969,7 @@ class TransactionsManagerPage:
         rows = cur.fetchall()
         conn.close()
         self.populate_table(rows)
+        self._update_pagination_ui()
 
     def populate_table(self, rows):
         self._clear_customer_cell_highlights()
