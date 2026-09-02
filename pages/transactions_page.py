@@ -598,6 +598,56 @@ class TransactionsPage:
         except Exception:
             self.sent_amount.config(text="0")
 
+    def format_euro(self, value):
+        return f"€{value:,.2f}"
+
+    def get_active_rate(self):
+        if self.override_rate.get().strip():
+            try:
+                return float(self.override_rate.get())
+            except ValueError:
+                return None
+        conn = self.db()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT rate FROM currency_rates WHERE currency_code=? AND rate_date=?",
+            (self.deal_currency.get(), str(date.today())),
+        )
+        row = cur.fetchone()
+        return float(row[0]) if row else None
+
+    def refresh(self):
+        self.load_dropdowns()
+        self.load_transactions()
+        self.load_summary()
+
+    def load_dropdowns(self):
+        conn = self.db()
+        cur = conn.cursor()
+        cur.execute("SELECT name FROM customers WHERE status=1")
+        self.deal_customer.values = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT name FROM collectors WHERE status=1")
+        self.deal_collector.values = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT code FROM currencies WHERE status=1")
+        self.deal_currency.values = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT name FROM bankers WHERE status=1")
+        self.deal_banker.values = [r[0] for r in cur.fetchall()]
+
+    def calculate_eur_from_local(self, event=None):
+        try:
+            local_amount = float(self.local_currency_amount.get())
+            rate = self.get_active_rate()
+            if not rate:
+                return
+            expected_eur = local_amount / rate if rate else 0
+            self.eur_expected.delete(0, tk.END)
+            self.eur_expected.insert(0, f"{expected_eur:.2f}")
+            self.calculate_sent()
+        except ValueError:
+            if not self.local_currency_amount.get().strip():
+                self.eur_expected.delete(0, tk.END)
+            self.calculate_sent()
+
     def load_summary(self):
         conn = self.db()
         cur = conn.cursor()

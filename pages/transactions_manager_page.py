@@ -683,11 +683,95 @@ class TransactionsManagerPage:
             "<Configure>", lambda _event: self._schedule_customer_cell_highlight()
         )
         self.table.bind(
-            "<ButtonRelease-1>", lambda _event: self._schedule_customer_cell_highlight()
-        )
-        self.table.bind(
             "<MouseWheel>", lambda _event: self._schedule_customer_cell_highlight()
         )
+
+        pagination_frame = tk.Frame(table_card, bg=styles.AppStyles.COLORS["white"])
+        pagination_frame.pack(fill="x", padx=8, pady=(4, 8))
+
+        styles.styled_button(
+            pagination_frame, "◀ Previous", self.prev_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+        self.page_info_label = tk.Label(
+            pagination_frame,
+            text="Page 1 of 1 (Total: 0)",
+            font=styles.AppStyles.FONTS["body_bold"],
+            bg=styles.AppStyles.COLORS["white"],
+            fg=styles.AppStyles.COLORS["text_primary"],
+        )
+        self.page_info_label.pack(side="left", padx=15)
+
+        styles.styled_button(
+            pagination_frame, "Next ▶", self.next_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+    def filter_today(self):
+        self.current_page = 1
+        today = date.today().strftime("%Y-%m-%d")
+        self.date_from.delete(0, tk.END)
+        self.date_to.delete(0, tk.END)
+        self.date_from.insert(0, today)
+        self.date_to.insert(0, today)
+        self.search_transactions()
+
+    def filter_yesterday(self):
+        self.current_page = 1
+        yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+        self.date_from.delete(0, tk.END)
+        self.date_to.delete(0, tk.END)
+        self.date_from.insert(0, yesterday)
+        self.date_to.insert(0, yesterday)
+        self.search_transactions()
+
+    def filter_week(self):
+        self.current_page = 1
+        today = date.today()
+        start_week = today - timedelta(days=today.weekday())
+        self.date_from.delete(0, tk.END)
+        self.date_to.delete(0, tk.END)
+        self.date_from.insert(0, start_week.strftime("%Y-%m-%d"))
+        self.date_to.insert(0, today.strftime("%Y-%m-%d"))
+        self.search_transactions()
+
+    def filter_month(self):
+        self.current_page = 1
+        today = date.today()
+        start_month = date(today.year, today.month, 1)
+        self.date_from.delete(0, tk.END)
+        self.date_to.delete(0, tk.END)
+        self.date_from.insert(0, start_month.strftime("%Y-%m-%d"))
+        self.date_to.insert(0, today.strftime("%Y-%m-%d"))
+        self.search_transactions()
+
+    def clear_filters(self):
+        self.current_page = 1
+        self.customer_filter.delete(0, tk.END)
+        self.exclude_customer_filter.delete(0, tk.END)
+        self.collector_filter.delete(0, tk.END)
+        self.banker_filter.delete(0, tk.END)
+        self.currency_filter.delete(0, tk.END)
+        self.status_filter.set("ALL")
+        self.type_filter.set("ALL")
+        self.date_from.delete(0, tk.END)
+        self.date_to.delete(0, tk.END)
+        self.search_transactions()
+
+    def prev_page(self):
+        if hasattr(self, "current_page") and self.current_page > 1:
+            self.current_page -= 1
+            self.search_transactions()
+
+    def next_page(self):
+        if hasattr(self, "current_page") and self.current_page < self.total_pages:
+            self.current_page += 1
+            self.search_transactions()
+
+    def _update_pagination_ui(self):
+        if hasattr(self, "page_info_label"):
+            self.page_info_label.config(
+                text=f"Page {self.current_page} of {self.total_pages} (Total: {self.total_count})"
+            )
 
     def format_euro(self, value):
         return f"€{value:,.2f}"
