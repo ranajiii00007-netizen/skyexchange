@@ -797,12 +797,23 @@ class TransactionsPage:
         self.trans_table.delete(*self.trans_table.get_children())
         conn = self.db()
         cur = conn.cursor()
+
+        cur.execute("SELECT COUNT(*) FROM transactions WHERE deal_date=?", (str(date.today()),))
+        self.total_count = cur.fetchone()[0] or 0
+        self.per_page = 20
+        self.total_pages = max(1, (self.total_count + self.per_page - 1) // self.per_page)
+
+        if not hasattr(self, "current_page") or self.current_page > self.total_pages or self.current_page < 1:
+            self.current_page = 1
+
+        offset = (self.current_page - 1) * self.per_page
+
         cur.execute(
             """SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate,
                       eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date,
                       COALESCE(transaction_type, 'REGULAR') as transaction_type
-                      FROM transactions WHERE deal_date=? ORDER BY id DESC""",
-            (str(date.today()),),
+                      FROM transactions WHERE deal_date=? ORDER BY id DESC LIMIT ? OFFSET ?""",
+            (str(date.today()), self.per_page, offset),
         )
         for r in cur.fetchall():
             tx_type = r[12]
@@ -833,3 +844,8 @@ class TransactionsPage:
                 tags=(row_tag,),
             )
         self._schedule_customer_cell_highlight()
+
+        if hasattr(self, "page_info_label"):
+            self.page_info_label.config(
+                text=f"Page {self.current_page} of {self.total_pages} (Total: {self.total_count})"
+            )
