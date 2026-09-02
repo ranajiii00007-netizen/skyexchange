@@ -340,7 +340,7 @@ def ensure_database_ready():
 
 def db():
     ensure_database_ready()
-    return database.connect_db(reuse_postgres=True)
+    return database.connect_db(reuse_postgres=False)
 
 
 def login_required(view_func):

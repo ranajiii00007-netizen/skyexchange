@@ -110,9 +110,16 @@ def _sqlite_connect():
 
 
 def _open_postgres_connection(psycopg):
+    sslmode = os.environ.get("POSTGRES_SSLMODE", "").strip().strip('"').strip("'")
+    if not sslmode:
+        if "127.0.0.1" in DATABASE_URL or "localhost" in DATABASE_URL:
+            sslmode = "prefer"
+        else:
+            sslmode = "require"
+
     conn = psycopg.connect(
         DATABASE_URL,
-        sslmode="require",
+        sslmode=sslmode,
         connect_timeout=10,
     )
     with conn.cursor() as cur:
