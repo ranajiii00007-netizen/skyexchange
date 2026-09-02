@@ -2,6 +2,89 @@
 {% block page_title %}Transactions Ledger{% endblock %}
 {% block content %}
 
+<script>
+const activeRates = {{ current_rates | tojson | safe }};
+
+function onCurrencyChange() {
+  const currencyCode = document.getElementById('tx-currency').value;
+  if (activeRates[currencyCode]) {
+    document.getElementById('tx-rate').value = activeRates[currencyCode];
+  } else {
+    document.getElementById('tx-rate').value = '';
+  }
+  calculateExpected();
+}
+
+function calculateExpected() {
+  const localVal = parseFloat(document.getElementById('tx-foreign-amount').value);
+  const rateVal = parseFloat(document.getElementById('tx-rate').value);
+  
+  if (!isNaN(localVal) && !isNaN(rateVal) && rateVal > 0) {
+    const expected = localVal / rateVal;
+    document.getElementById('tx-eur-expected').value = expected.toFixed(2);
+  } else {
+    document.getElementById('tx-eur-expected').value = '';
+  }
+}
+
+function onExpectedChange() {
+  // Manual edit handler
+}
+
+function editTx(tx) {
+  document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + tx.customer_name + ')';
+  document.getElementById('tx-id').value = tx.id;
+  document.getElementById('tx-customer').value = tx.customer_name;
+  document.getElementById('tx-customer-search').value = tx.customer_name;
+  document.getElementById('tx-currency').value = tx.target_currency;
+  document.getElementById('tx-rate').value = tx.exchange_rate;
+  document.getElementById('tx-foreign-amount').value = tx.foreign_amount;
+  document.getElementById('tx-eur-expected').value = tx.eur_expected;
+  document.getElementById('tx-eur-received').value = tx.eur_received;
+  
+  document.getElementById('tx-collector').value = tx.collector_name || '';
+  document.getElementById('tx-collector-search').value = tx.collector_name || '';
+  
+  document.getElementById('tx-banker').value = tx.banker_name || '';
+  document.getElementById('tx-banker-search').value = tx.banker_name || '';
+  
+  document.getElementById('tx-date').value = tx.deal_date;
+  const recDateEl = document.getElementById('tx-received-date');
+  if (recDateEl) recDateEl.value = tx.received_date || '';
+  document.getElementById('tx-type').value = tx.transaction_type;
+  const pickedByEl = document.getElementById('tx-picked-by');
+  if (pickedByEl) pickedByEl.value = tx.picked_by || '';
+  document.getElementById('tx-notes').value = tx.notes;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function clearTxForm() {
+  document.getElementById('form-title').innerText = '➕ Add New Transaction';
+  document.getElementById('tx-id').value = '';
+  document.getElementById('tx-customer').value = '';
+  document.getElementById('tx-customer-search').value = '';
+  document.getElementById('tx-currency').value = '';
+  document.getElementById('tx-rate').value = '';
+  document.getElementById('tx-foreign-amount').value = '';
+  document.getElementById('tx-eur-expected').value = '';
+  document.getElementById('tx-eur-received').value = '0.00';
+  
+  document.getElementById('tx-collector').value = '';
+  document.getElementById('tx-collector-search').value = '';
+  
+  document.getElementById('tx-banker').value = '';
+  document.getElementById('tx-banker-search').value = '';
+  
+  document.getElementById('tx-date').value = '{{ today }}';
+  const recDateEl = document.getElementById('tx-received-date');
+  if (recDateEl) recDateEl.value = '';
+  document.getElementById('tx-type').value = 'REGULAR';
+  const pickedByEl = document.getElementById('tx-picked-by');
+  if (pickedByEl) pickedByEl.value = '';
+  document.getElementById('tx-notes').value = '';
+}
+</script>
+
 <!-- Form to Add/Edit Transaction -->
 <div class="card">
   <h3 id="form-title">➕ Add New Transaction</h3>
@@ -240,89 +323,24 @@
   </div>
 </div>
 
-<!-- Embedded rates lookup object for JavaScript -->
+{% if pagination and pagination.total_pages > 1 %}
+<div class="card" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; margin-top: 16px;">
+  <div style="font-size: 14px; color: var(--text-secondary);">
+    Showing Page <strong>{{ pagination.page }}</strong> of <strong>{{ pagination.total_pages }}</strong> (Total: <strong>{{ pagination.total_count }}</strong> deals)
+  </div>
+  <div style="display: flex; gap: 8px;">
+    {% if pagination.page > 1 %}
+      <a href="{{ url_for('admin_transactions', page=pagination.page-1, customer=filters.customer, search=filters.search, collector=filters.collector, banker=filters.banker, status=filters.status, date_from=filters.date_from, date_to=filters.date_to) }}" class="btn btn-secondary" style="padding: 6px 14px; text-decoration: none;">&laquo; Previous</a>
+    {% endif %}
+    {% if pagination.page < pagination.total_pages %}
+      <a href="{{ url_for('admin_transactions', page=pagination.page+1, customer=filters.customer, search=filters.search, collector=filters.collector, banker=filters.banker, status=filters.status, date_from=filters.date_from, date_to=filters.date_to) }}" class="btn btn-secondary" style="padding: 6px 14px; text-decoration: none;">Next &raquo;</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Autocomplete Initializer Script -->
 <script>
-const activeRates = {{ current_rates | tojson }};
-
-function onCurrencyChange() {
-  const currencyCode = document.getElementById('tx-currency').value;
-  if (activeRates[currencyCode]) {
-    document.getElementById('tx-rate').value = activeRates[currencyCode];
-  } else {
-    document.getElementById('tx-rate').value = '';
-  }
-  calculateExpected();
-}
-
-function calculateExpected() {
-  const localVal = parseFloat(document.getElementById('tx-foreign-amount').value);
-  const rateVal = parseFloat(document.getElementById('tx-rate').value);
-  
-  if (!isNaN(localVal) && !isNaN(rateVal) && rateVal > 0) {
-    const expected = localVal / rateVal;
-    document.getElementById('tx-eur-expected').value = expected.toFixed(2);
-  } else {
-    document.getElementById('tx-eur-expected').value = '';
-  }
-}
-
-function onExpectedChange() {
-  // If they manually edit the Expected EUR field, we don't overwrite it unless they modify amount/rate again.
-}
-
-function editTx(tx) {
-  document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + tx.customer_name + ')';
-  document.getElementById('tx-id').value = tx.id;
-  document.getElementById('tx-customer').value = tx.customer_name;
-  document.getElementById('tx-customer-search').value = tx.customer_name;
-  document.getElementById('tx-currency').value = tx.target_currency;
-  document.getElementById('tx-rate').value = tx.exchange_rate;
-  document.getElementById('tx-foreign-amount').value = tx.foreign_amount;
-  document.getElementById('tx-eur-expected').value = tx.eur_expected;
-  document.getElementById('tx-eur-received').value = tx.eur_received;
-  
-  document.getElementById('tx-collector').value = tx.collector_name || '';
-  document.getElementById('tx-collector-search').value = tx.collector_name || '';
-  
-  document.getElementById('tx-banker').value = tx.banker_name || '';
-  document.getElementById('tx-banker-search').value = tx.banker_name || '';
-  
-  document.getElementById('tx-date').value = tx.deal_date;
-  const recDateEl = document.getElementById('tx-received-date');
-  if (recDateEl) recDateEl.value = tx.received_date || '';
-  document.getElementById('tx-type').value = tx.transaction_type;
-  const pickedByEl = document.getElementById('tx-picked-by');
-  if (pickedByEl) pickedByEl.value = tx.picked_by || '';
-  document.getElementById('tx-notes').value = tx.notes;
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function clearTxForm() {
-  document.getElementById('form-title').innerText = '➕ Add New Transaction';
-  document.getElementById('tx-id').value = '';
-  document.getElementById('tx-customer').value = '';
-  document.getElementById('tx-customer-search').value = '';
-  document.getElementById('tx-currency').value = '';
-  document.getElementById('tx-rate').value = '';
-  document.getElementById('tx-foreign-amount').value = '';
-  document.getElementById('tx-eur-expected').value = '';
-  document.getElementById('tx-eur-received').value = '0.00';
-  
-  document.getElementById('tx-collector').value = '';
-  document.getElementById('tx-collector-search').value = '';
-  
-  document.getElementById('tx-banker').value = '';
-  document.getElementById('tx-banker-search').value = '';
-  
-  document.getElementById('tx-date').value = '{{ today }}';
-  const recDateEl = document.getElementById('tx-received-date');
-  if (recDateEl) recDateEl.value = '';
-  document.getElementById('tx-type').value = 'REGULAR';
-  const pickedByEl = document.getElementById('tx-picked-by');
-  if (pickedByEl) pickedByEl.value = '';
-  document.getElementById('tx-notes').value = '';
-}
-
 // Initialize Autocomplete for Customer field
 const customerList = {{ dropdowns.customers | map(attribute='name') | list | tojson }};
 initAutocomplete(

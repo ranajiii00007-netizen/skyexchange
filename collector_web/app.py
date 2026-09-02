@@ -2655,6 +2655,9 @@ def admin_transactions():
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
 
+    page = request.args.get("page", 1, type=int)
+    per_page = 100
+
     conn = db()
     cur = conn.cursor()
 
@@ -2675,20 +2678,14 @@ def admin_transactions():
     cur.execute("SELECT currency_code, rate FROM currency_rates WHERE rate_date=?", (str(date.today()),))
     current_rates = {row[0]: row[1] for row in cur.fetchall()}
 
-    # Fetch Transactions Ledger
-    query = """
-        SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
-               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
-               picked_by, notes, transaction_type, received_date, bank_account_details, bank_account_attachment, banker_proof_attachment, banker_status
-        FROM transactions 
-        WHERE 1=1
-    """
+    # Base query filter build
+    where_clause = " WHERE 1=1"
     params = []
     
     if search:
         keywords = search.lower().split()
         for k in keywords:
-            query += """ AND (
+            where_clause += """ AND (
                 LOWER(customer_name) LIKE ? OR 
                 LOWER(collector_name) LIKE ? OR 
                 LOWER(banker_name) LIKE ? OR 
@@ -2704,27 +2701,43 @@ def admin_transactions():
     if customer:
         keywords = customer.lower().split()
         for k in keywords:
-            query += " AND LOWER(customer_name) LIKE ?"
+            where_clause += " AND LOWER(customer_name) LIKE ?"
             params.append(f"%{k}%")
         
     if collector:
-        query += " AND collector_name = ?"
+        where_clause += " AND collector_name = ?"
         params.append(collector)
     if banker:
-        query += " AND banker_name = ?"
+        where_clause += " AND banker_name = ?"
         params.append(banker)
     if status != "ALL":
-        query += " AND status = ?"
+        where_clause += " AND status = ?"
         params.append(status)
     if date_from:
-        query += " AND deal_date >= ?"
+        where_clause += " AND deal_date >= ?"
         params.append(date_from)
     if date_to:
-        query += " AND deal_date <= ?"
+        where_clause += " AND deal_date <= ?"
         params.append(date_to)
         
-    query += " ORDER BY deal_date DESC, id DESC"
-    cur.execute(query, params)
+    # Count total transactions matching filters
+    cur.execute("SELECT COUNT(*) FROM transactions" + where_clause, params)
+    total_count = cur.fetchone()[0] or 0
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    if page > total_pages:
+        page = total_pages
+
+    offset = (page - 1) * per_page
+
+    query = """
+        SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
+               eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
+               picked_by, notes, transaction_type, received_date, bank_account_details, bank_account_attachment, banker_proof_attachment, banker_status
+        FROM transactions 
+    """ + where_clause + " ORDER BY deal_date DESC, id DESC LIMIT ? OFFSET ?"
+    
+    query_params = list(params) + [per_page, offset]
+    cur.execute(query, query_params)
     
     transactions = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
@@ -2744,9 +2757,16 @@ def admin_transactions():
         "customers": customers, "collectors": collectors, "currencies": currencies, "bankers": bankers
     }
 
+    pagination = {
+        "page": page,
+        "per_page": per_page,
+        "total_count": total_count,
+        "total_pages": total_pages
+    }
+
     return render_template(
         "admin_transactions.html", active_page="transactions", dropdowns=dropdowns, 
-        current_rates=current_rates, transactions=transactions, filters=filters, today=str(date.today())
+        current_rates=current_rates, transactions=transactions, filters=filters, pagination=pagination, today=str(date.today())
     )
 
 
