@@ -583,6 +583,12 @@ class TransactionsPage:
             self.current_page += 1
             self.load_transactions()
 
+    def on_rate_changed(self, event=None):
+        if self.local_currency_amount.get().strip():
+            self.calculate_eur_from_local()
+        else:
+            self.calculate_sent()
+
     def calculate_sent(self, event=None):
         try:
             exp = float(self.eur_expected.get())
