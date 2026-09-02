@@ -472,6 +472,36 @@ class ReceivingPage:
             "<MouseWheel>", lambda _event: self._schedule_customer_cell_highlight("pending")
         )
 
+        p_pagination_frame = tk.Frame(container, bg=styles.AppStyles.COLORS["white"])
+        p_pagination_frame.pack(fill="x", pady=(4, 0))
+
+        styles.styled_button(
+            p_pagination_frame, "◀ Previous", self.prev_pending_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+        self.p_page_info_label = tk.Label(
+            p_pagination_frame,
+            text="Page 1 of 1 (Total: 0)",
+            font=styles.AppStyles.FONTS["body_bold"],
+            bg=styles.AppStyles.COLORS["white"],
+            fg=styles.AppStyles.COLORS["text_primary"],
+        )
+        self.p_page_info_label.pack(side="left", padx=15)
+
+        styles.styled_button(
+            p_pagination_frame, "Next ▶", self.next_pending_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+    def prev_pending_page(self):
+        if hasattr(self, "p_current_page") and self.p_current_page > 1:
+            self.p_current_page -= 1
+            self.load_pending()
+
+    def next_pending_page(self):
+        if hasattr(self, "p_current_page") and self.p_current_page < self.p_total_pages:
+            self.p_current_page += 1
+            self.load_pending()
+
     def _build_received_tab(self):
         main_container = styles.make_scrollable(self.received_tab)
 
@@ -751,6 +781,36 @@ class ReceivingPage:
             lambda _event: self._schedule_customer_cell_highlight("received"),
         )
 
+        r_pagination_frame = tk.Frame(container, bg=styles.AppStyles.COLORS["white"])
+        r_pagination_frame.pack(fill="x", pady=(4, 0))
+
+        styles.styled_button(
+            r_pagination_frame, "◀ Previous", self.prev_received_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+        self.r_page_info_label = tk.Label(
+            r_pagination_frame,
+            text="Page 1 of 1 (Total: 0)",
+            font=styles.AppStyles.FONTS["body_bold"],
+            bg=styles.AppStyles.COLORS["white"],
+            fg=styles.AppStyles.COLORS["text_primary"],
+        )
+        self.r_page_info_label.pack(side="left", padx=15)
+
+        styles.styled_button(
+            r_pagination_frame, "Next ▶", self.next_received_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+    def prev_received_page(self):
+        if hasattr(self, "r_current_page") and self.r_current_page > 1:
+            self.r_current_page -= 1
+            self.load_received()
+
+    def next_received_page(self):
+        if hasattr(self, "r_current_page") and self.r_current_page < self.r_total_pages:
+            self.r_current_page += 1
+            self.load_received()
+
     def select_row(self, _event):
         sel = self.pending_table.selection()
         if sel:
@@ -1022,19 +1082,31 @@ class ReceivingPage:
         cur = conn.cursor()
 
         where_clause, params = self._pending_where_clause(include_status=False)
+        pending_where = f"({where_clause}) AND COALESCE(t.status, 'OPEN') = 'OPEN'"
+
+        count_query = f"SELECT COUNT(*), SUM(t.eur_expected), SUM(t.eur_received), SUM(t.pending_eur) FROM transactions t WHERE {pending_where}"
+        cur.execute(count_query, params)
+        grand_row = cur.fetchone() or (0, 0, 0, 0)
+        self.p_total_count = grand_row[0] or 0
+        self.p_per_page = 20
+        self.p_total_pages = max(1, (self.p_total_count + self.p_per_page - 1) // self.p_per_page)
+
+        if not hasattr(self, "p_current_page") or self.p_current_page > self.p_total_pages or self.p_current_page < 1:
+            self.p_current_page = 1
+
+        offset = (self.p_current_page - 1) * self.p_per_page
+
         query = (
             "SELECT t.id, t.deal_date, COALESCE(t.transaction_type, 'REGULAR') AS transaction_type, "
             "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received, t.pending_eur, "
             "COALESCE(t.picked_by, ''), t.status "
             "FROM transactions t "
-            f"WHERE {where_clause} ORDER BY t.id DESC"
+            f"WHERE {pending_where} ORDER BY t.id DESC LIMIT ? OFFSET ?"
         )
-        cur.execute(query, params)
+        cur.execute(query, list(params) + [self.p_per_page, offset])
         rows = cur.fetchall()
 
         for r in rows:
-            if (r[10] or "OPEN") != "OPEN":
-                continue
             self._customer_overlays["pending"]["names"][str(r[0])] = r[3]
             values = (r[1], r[2], "", r[4], r[5], r[6], r[7], r[8], r[9])
             self.pending_table.insert(
@@ -1042,20 +1114,21 @@ class ReceivingPage:
             )
         self._schedule_customer_cell_highlight("pending")
 
-        regular_rows = [r for r in rows if (r[2] or "REGULAR") == "REGULAR"]
-        deals = len(regular_rows)
-        open_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "OPEN")
-        closed_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "CLOSED")
-        exp = sum(float(r[6] or 0) for r in regular_rows)
-        rec = sum(float(r[7] or 0) for r in regular_rows)
-        pen = sum(float(r[8] or 0) for r in regular_rows)
+        exp = float(grand_row[1] or 0)
+        rec = float(grand_row[2] or 0)
+        pen = float(grand_row[3] or 0)
 
-        self.p_deals.config(text=f"Deals: {deals or 0}")
-        self.p_open.config(text=f"Open Deals: {open_deals or 0}")
-        self.p_closed.config(text=f"Closed Deals: {closed_deals or 0}")
-        self.p_exp.config(text=f"Expected €{(exp or 0):,.2f}")
-        self.p_rec.config(text=f"Received €{(rec or 0):,.2f}")
-        self.p_pen.config(text=f"Pending €{(pen or 0):,.2f}")
+        self.p_deals.config(text=f"Deals: {self.p_total_count}")
+        self.p_open.config(text=f"Open Deals: {self.p_total_count}")
+        self.p_closed.config(text="Closed Deals: 0")
+        self.p_exp.config(text=f"Expected €{exp:,.2f}")
+        self.p_rec.config(text=f"Received €{rec:,.2f}")
+        self.p_pen.config(text=f"Pending €{pen:,.2f}")
+
+        if hasattr(self, "p_page_info_label"):
+            self.p_page_info_label.config(
+                text=f"Page {self.p_current_page} of {self.p_total_pages} (Total: {self.p_total_count})"
+            )
 
     def load_received(self):
         self._clear_customer_cell_highlights("received")
@@ -1066,20 +1139,32 @@ class ReceivingPage:
         cur = conn.cursor()
 
         where_clause, params = self._received_where_clause(include_status=True)
+        received_where = f"({where_clause}) AND COALESCE(t.eur_received, 0) > 0"
+
+        count_query = f"SELECT COUNT(*), SUM(t.eur_expected), SUM(t.eur_received) FROM transactions t WHERE {received_where}"
+        cur.execute(count_query, params)
+        grand_row = cur.fetchone() or (0, 0, 0)
+        self.r_total_count = grand_row[0] or 0
+        self.r_per_page = 20
+        self.r_total_pages = max(1, (self.r_total_count + self.r_per_page - 1) // self.r_per_page)
+
+        if not hasattr(self, "r_current_page") or self.r_current_page > self.r_total_pages or self.r_current_page < 1:
+            self.r_current_page = 1
+
+        offset = (self.r_current_page - 1) * self.r_per_page
+
         query = (
             "SELECT t.id, t.deal_date, t.received_date, COALESCE(t.transaction_type, 'REGULAR') AS transaction_type, "
             "t.customer_name, t.collector_name, t.target_currency, t.eur_expected, t.eur_received, "
             "COALESCE(t.picked_by, ''), t.status "
             "FROM transactions t "
-            f"WHERE {where_clause} ORDER BY t.id DESC"
+            f"WHERE {received_where} ORDER BY t.id DESC LIMIT ? OFFSET ?"
         )
-        cur.execute(query, params)
+        cur.execute(query, list(params) + [self.r_per_page, offset])
         rows = cur.fetchall()
 
         for r in rows:
             status = (r[10] or "OPEN").upper()
-            if float(r[8] or 0) <= 0:
-                continue
             self._customer_overlays["received"]["names"][str(r[0])] = r[4]
             values = (r[1], r[2], r[3], "", r[5], r[6], r[7], r[8], r[9], status)
             self.received_table.insert(
@@ -1091,22 +1176,19 @@ class ReceivingPage:
             )
         self._schedule_customer_cell_highlight("received")
 
-        regular_rows = [
-            r
-            for r in rows
-            if (r[3] or "REGULAR") == "REGULAR" and float(r[8] or 0) > 0
-        ]
-        deals = len(regular_rows)
-        open_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "OPEN")
-        closed_deals = sum(1 for r in regular_rows if (r[10] or "OPEN") == "CLOSED")
-        exp = sum(float(r[7] or 0) for r in regular_rows)
-        rec = sum(float(r[8] or 0) for r in regular_rows)
+        exp = float(grand_row[1] or 0)
+        rec = float(grand_row[2] or 0)
 
-        self.r_deals.config(text=f"Deals: {deals or 0}")
-        self.r_open.config(text=f"Open Deals: {open_deals or 0}")
-        self.r_closed.config(text=f"Closed Deals: {closed_deals or 0}")
-        self.r_exp.config(text=f"Expected €{(exp or 0):,.2f}")
-        self.r_rec.config(text=f"Received €{(rec or 0):,.2f}")
+        self.r_deals.config(text=f"Deals: {self.r_total_count}")
+        self.r_open.config(text=f"Open Deals: 0")
+        self.r_closed.config(text=f"Closed Deals: {self.r_total_count}")
+        self.r_exp.config(text=f"Expected €{exp:,.2f}")
+        self.r_rec.config(text=f"Received €{rec:,.2f}")
+
+        if hasattr(self, "r_page_info_label"):
+            self.r_page_info_label.config(
+                text=f"Page {self.r_current_page} of {self.r_total_pages} (Total: {self.r_total_count})"
+            )
 
     def clear_pending_filters(self):
         self.p_from.delete(0, tk.END)
