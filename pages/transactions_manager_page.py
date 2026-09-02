@@ -941,9 +941,20 @@ class TransactionsManagerPage:
             where_clause += " AND deal_date<=?"
             params.append(self.date_to.get().strip())
 
-        # Calculate count & pagination
-        cur.execute("SELECT COUNT(*) FROM transactions" + where_clause, params)
-        self.total_count = cur.fetchone()[0] or 0
+        # Calculate grand totals across ALL matched transactions according to search filter
+        cur.execute(
+            """SELECT COUNT(*), SUM(eur_expected), SUM(eur_received), SUM(pending_eur)
+               FROM transactions""" + where_clause, params
+        )
+        grand_totals = cur.fetchone() or (0, 0.0, 0.0, 0.0)
+        self.total_count = grand_totals[0] or 0
+        self.grand_summary = {
+            "total_deals": self.total_count,
+            "expected": float(grand_totals[1] or 0),
+            "received": float(grand_totals[2] or 0),
+            "pending": float(grand_totals[3] or 0),
+        }
+
         self.per_page = 20
         self.total_pages = max(1, (self.total_count + self.per_page - 1) // self.per_page)
 
@@ -964,8 +975,6 @@ class TransactionsManagerPage:
         self._customer_names = {}
         self._row_cache = {}
         self.table.delete(*self.table.get_children())
-
-        total_expected = total_received = total_pending = 0.0
 
         for r in rows:
             self._row_cache[int(r[0])] = r
@@ -1002,21 +1011,21 @@ class TransactionsManagerPage:
                 tags=(tag,),
             )
 
-            total_expected += expected
-            total_received += received
-            total_pending += pending
-
         self._schedule_customer_cell_highlight()
 
-        self.result_label.config(text=f"Deals: {len(rows)}")
+        summary = getattr(self, "grand_summary", {
+            "total_deals": len(rows), "expected": 0.0, "received": 0.0, "pending": 0.0
+        })
+
+        self.result_label.config(text=f"Deals: {summary['total_deals']}")
         self.total_expected_label.config(
-            text=f"Expected: {self.format_euro(total_expected)}"
+            text=f"Expected: {self.format_euro(summary['expected'])}"
         )
         self.total_received_label.config(
-            text=f"Received: {self.format_euro(total_received)}"
+            text=f"Received: {self.format_euro(summary['received'])}"
         )
         self.total_pending_label.config(
-            text=f"Pending: {self.format_euro(total_pending)}"
+            text=f"Pending: {self.format_euro(summary['pending'])}"
         )
         if not rows:
             self.selected_note_label.config(text="Select a transaction to view notes")
