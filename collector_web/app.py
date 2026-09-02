@@ -2656,7 +2656,7 @@ def admin_transactions():
     date_to = request.args.get("date_to", "").strip()
 
     page = request.args.get("page", 1, type=int)
-    per_page = 100
+    per_page = 20
 
     conn = db()
     cur = conn.cursor()
@@ -3225,50 +3225,69 @@ def admin_receiving():
         filter_clause += " AND received_date <= ?"
         params.append(received_to)
 
-    # Fetch pending list
+    page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    # Fetch pending list total count and page items
+    cur.execute("SELECT COUNT(*) FROM transactions WHERE pending_eur > 0 AND UPPER(status)='OPEN'" + filter_clause, params)
+    pending_total = cur.fetchone()[0] or 0
+    pending_total_pages = max(1, (pending_total + per_page - 1) // per_page)
+
+    pending_page = page if active_tab == "pending" else 1
+    if pending_page > pending_total_pages:
+        pending_page = pending_total_pages
+    pending_offset = (pending_page - 1) * per_page
+
     pending_query = """
         SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date
         FROM transactions 
         WHERE pending_eur > 0 AND UPPER(status)='OPEN'
     """
-    cur.execute(pending_query + filter_clause + " ORDER BY deal_date DESC, id DESC", params)
+    cur.execute(pending_query + filter_clause + " ORDER BY deal_date DESC, id DESC LIMIT ? OFFSET ?", list(params) + [per_page, pending_offset])
     pending_txs = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
         exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
         status=r[10], deal_date=r[11]
     ) for r in cur.fetchall()]
 
-    # Fetch received list
+    # Fetch received list total count and page items
+    cur.execute("SELECT COUNT(*) FROM transactions WHERE eur_received > 0 AND UPPER(status)='CLOSED'" + filter_clause, params)
+    received_total = cur.fetchone()[0] or 0
+    received_total_pages = max(1, (received_total + per_page - 1) // per_page)
+
+    received_page = page if active_tab == "received" else 1
+    if received_page > received_total_pages:
+        received_page = received_total_pages
+    received_offset = (received_page - 1) * per_page
+
     received_query = """
         SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate, 
                eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, received_date, picked_by
         FROM transactions 
         WHERE eur_received > 0 AND UPPER(status)='CLOSED'
     """
-    cur.execute(received_query + filter_clause + " ORDER BY deal_date DESC, id DESC", params)
+    cur.execute(received_query + filter_clause + " ORDER BY deal_date DESC, id DESC LIMIT ? OFFSET ?", list(params) + [per_page, received_offset])
     received_txs = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
         exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
         status=r[10], deal_date=r[11], received_date=r[12], picked_by=r[13]
     ) for r in cur.fetchall()]
 
-    conn.close()
-
     # Summary totals across all matched deals
-    open_count = len(pending_txs)
-    closed_count = len(received_txs)
-    total_count = open_count + closed_count
-    all_txs = pending_txs + received_txs
-
+    cur.execute("SELECT COUNT(*), SUM(eur_expected), SUM(eur_received), SUM(pending_eur) FROM transactions WHERE 1=1" + filter_clause, params)
+    sum_row = cur.fetchone() or (0, 0, 0, 0)
+    
     summary = {
-        "total_deals": total_count,
-        "closed_deals": closed_count,
-        "open_deals": open_count,
-        "expected": sum(tx["eur_expected"] for tx in all_txs),
-        "received": sum(tx["eur_received"] for tx in all_txs),
-        "pending": sum(tx["pending_eur"] for tx in pending_txs),
+        "total_deals": sum_row[0] or 0,
+        "closed_deals": received_total,
+        "open_deals": pending_total,
+        "expected": sum_row[1] or 0.0,
+        "received": sum_row[2] or 0.0,
+        "pending": sum_row[3] or 0.0,
     }
+
+    conn.close()
 
     filters = {
         "customer": customer, "exclude_customer": exclude_customer, "collector": collector, "banker": banker,
@@ -3276,9 +3295,19 @@ def admin_receiving():
         "received_from": received_from, "received_to": received_to
     }
 
+    pagination = {
+        "pending_page": pending_page,
+        "pending_total_pages": pending_total_pages,
+        "pending_total": pending_total,
+        "received_page": received_page,
+        "received_total_pages": received_total_pages,
+        "received_total": received_total,
+        "per_page": per_page
+    }
+
     return render_template(
         "admin_receiving.html", active_page="receiving", active_tab=active_tab, 
-        dropdowns=dropdowns, filters=filters, summary=summary,
+        dropdowns=dropdowns, filters=filters, summary=summary, pagination=pagination,
         pending_txs=pending_txs, received_txs=received_txs, today=str(date.today())
     )
 

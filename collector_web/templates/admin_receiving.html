@@ -219,6 +219,21 @@
           </tbody>
         </table>
       </div>
+      {% if pagination and pagination.pending_total_pages > 1 %}
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; margin-top: 12px; background: var(--bg-card); border-radius: 8px;">
+        <div style="font-size: 13px; color: var(--text-secondary);">
+          Showing Pending Page <strong>{{ pagination.pending_page }}</strong> of <strong>{{ pagination.pending_total_pages }}</strong> (Total: <strong>{{ pagination.pending_total }}</strong> deals)
+        </div>
+        <div style="display: flex; gap: 8px;">
+          {% if pagination.pending_page > 1 %}
+            <a href="{{ url_for('admin_receiving', tab='pending', page=pagination.pending_page-1, customer=filters.customer, exclude_customer=filters.exclude_customer, collector=filters.collector, banker=filters.banker, currency=filters.currency, picked_by=filters.picked_by, date_from=filters.date_from, date_to=filters.date_to, received_from=filters.received_from, received_to=filters.received_to) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; text-decoration: none;">&laquo; Previous</a>
+          {% endif %}
+          {% if pagination.pending_page < pagination.pending_total_pages %}
+            <a href="{{ url_for('admin_receiving', tab='pending', page=pagination.pending_page+1, customer=filters.customer, exclude_customer=filters.exclude_customer, collector=filters.collector, banker=filters.banker, currency=filters.currency, picked_by=filters.picked_by, date_from=filters.date_from, date_to=filters.date_to, received_from=filters.received_from, received_to=filters.received_to) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; text-decoration: none;">Next &raquo;</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -283,6 +298,21 @@
         </tbody>
       </table>
     </div>
+    {% if pagination and pagination.received_total_pages > 1 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; margin-top: 12px; background: var(--bg-card); border-radius: 8px;">
+      <div style="font-size: 13px; color: var(--text-secondary);">
+        Showing Received Page <strong>{{ pagination.received_page }}</strong> of <strong>{{ pagination.received_total_pages }}</strong> (Total: <strong>{{ pagination.received_total }}</strong> deals)
+      </div>
+      <div style="display: flex; gap: 8px;">
+        {% if pagination.received_page > 1 %}
+          <a href="{{ url_for('admin_receiving', tab='received', page=pagination.received_page-1, customer=filters.customer, exclude_customer=filters.exclude_customer, collector=filters.collector, banker=filters.banker, currency=filters.currency, picked_by=filters.picked_by, date_from=filters.date_from, date_to=filters.date_to, received_from=filters.received_from, received_to=filters.received_to) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; text-decoration: none;">&laquo; Previous</a>
+        {% endif %}
+        {% if pagination.received_page < pagination.received_total_pages %}
+          <a href="{{ url_for('admin_receiving', tab='received', page=pagination.received_page+1, customer=filters.customer, exclude_customer=filters.exclude_customer, collector=filters.collector, banker=filters.banker, currency=filters.currency, picked_by=filters.picked_by, date_from=filters.date_from, date_to=filters.date_to, received_from=filters.received_from, received_to=filters.received_to) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; text-decoration: none;">Next &raquo;</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 

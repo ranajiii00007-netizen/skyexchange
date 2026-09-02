@@ -848,51 +848,63 @@ class TransactionsManagerPage:
         conn = self.db()
         cur = conn.cursor()
 
-        query = f"{self._transactions_select_query()} WHERE 1=1"
+        where_clause = " WHERE 1=1"
         params = []
 
         if self.customer_filter.get().strip():
-            query += " AND LOWER(customer_name) LIKE ?"
+            where_clause += " AND LOWER(customer_name) LIKE ?"
             params.append(f"%{self.customer_filter.get().strip().lower()}%")
 
         if self.exclude_customer_filter.get().strip():
-            query += " AND LOWER(customer_name) NOT LIKE ?"
+            where_clause += " AND LOWER(customer_name) NOT LIKE ?"
             params.append(f"%{self.exclude_customer_filter.get().strip().lower()}%")
 
         if self.collector_filter.get().strip():
-            query += " AND LOWER(collector_name) LIKE ?"
+            where_clause += " AND LOWER(collector_name) LIKE ?"
             params.append(f"%{self.collector_filter.get().strip().lower()}%")
 
         if self.banker_filter.get().strip():
-            query += " AND LOWER(banker_name) LIKE ?"
+            where_clause += " AND LOWER(banker_name) LIKE ?"
             params.append(f"%{self.banker_filter.get().strip().lower()}%")
 
         if self.currency_filter.get().strip():
-            query += " AND LOWER(target_currency) LIKE ?"
+            where_clause += " AND LOWER(target_currency) LIKE ?"
             params.append(f"%{self.currency_filter.get().strip().lower()}%")
 
         if self.status_filter.get() != "ALL":
-            query += " AND status=?"
+            where_clause += " AND status=?"
             params.append(self.status_filter.get())
 
         if self.type_filter.get() != "ALL":
             if self.type_filter.get() == "REGULAR":
-                query += " AND (transaction_type=? OR transaction_type IS NULL)"
+                where_clause += " AND (transaction_type=? OR transaction_type IS NULL)"
                 params.append("REGULAR")
             else:
-                query += " AND transaction_type=?"
+                where_clause += " AND transaction_type=?"
                 params.append(self.type_filter.get())
 
         if self.date_from.get().strip():
-            query += " AND deal_date>=?"
+            where_clause += " AND deal_date>=?"
             params.append(self.date_from.get().strip())
 
         if self.date_to.get().strip():
-            query += " AND deal_date<=?"
+            where_clause += " AND deal_date<=?"
             params.append(self.date_to.get().strip())
 
-        query += " ORDER BY id DESC"
-        cur.execute(query, params)
+        # Calculate count & pagination
+        cur.execute("SELECT COUNT(*) FROM transactions" + where_clause, params)
+        self.total_count = cur.fetchone()[0] or 0
+        self.per_page = 20
+        self.total_pages = max(1, (self.total_count + self.per_page - 1) // self.per_page)
+
+        if not hasattr(self, "current_page") or self.current_page > self.total_pages or self.current_page < 1:
+            self.current_page = 1
+
+        offset = (self.current_page - 1) * self.per_page
+
+        query = f"{self._transactions_select_query()}" + where_clause + " ORDER BY id DESC LIMIT ? OFFSET ?"
+        query_params = list(params) + [self.per_page, offset]
+        cur.execute(query, query_params)
         rows = cur.fetchall()
         conn.close()
         self.populate_table(rows)
