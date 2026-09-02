@@ -310,6 +310,36 @@ class ReportsPage:
             "<MouseWheel>", lambda _event: self._schedule_customer_cell_highlight("summary")
         )
 
+        s_pagination_frame = tk.Frame(tree_card, bg=styles.AppStyles.COLORS["white"])
+        s_pagination_frame.pack(fill="x", padx=10, pady=(4, 8))
+
+        styles.styled_button(
+            s_pagination_frame, "◀ Previous", self.prev_summary_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+        self.s_page_info_label = tk.Label(
+            s_pagination_frame,
+            text="Page 1 of 1 (Total: 0)",
+            font=styles.AppStyles.FONTS["body_bold"],
+            bg=styles.AppStyles.COLORS["white"],
+            fg=styles.AppStyles.COLORS["text_primary"],
+        )
+        self.s_page_info_label.pack(side="left", padx=15)
+
+        styles.styled_button(
+            s_pagination_frame, "Next ▶", self.next_summary_page, "Secondary"
+        ).pack(side="left", padx=5)
+
+    def prev_summary_page(self):
+        if hasattr(self, "s_current_page") and self.s_current_page > 1:
+            self.s_current_page -= 1
+            self.search_summary()
+
+    def next_summary_page(self):
+        if hasattr(self, "s_current_page") and self.s_current_page < self.s_total_pages:
+            self.s_current_page += 1
+            self.search_summary()
+
     def _build_detailed_tab(self):
         main_container = styles.make_scrollable(self.detailed_tab)
 
@@ -803,48 +833,65 @@ class ReportsPage:
         try:
             conn = self.db()
             cur = conn.cursor()
-            query = "SELECT deal_date, customer_name, banker_name, target_currency, eur_expected, eur_received, pending_eur, status FROM transactions WHERE 1=1"
+            base_where = " WHERE 1=1"
             params = []
             if self.banker_filter.get() and self.banker_filter.get() != "All":
-                query += " AND banker_name = ?"
+                base_where += " AND banker_name = ?"
                 params.append(self.banker_filter.get())
             if self.customer_filter.get() and self.customer_filter.get() != "All":
-                query += " AND customer_name = ?"
+                base_where += " AND customer_name = ?"
                 params.append(self.customer_filter.get())
             if self.collector_filter.get() and self.collector_filter.get() != "All":
-                query += " AND collector_name = ?"
+                base_where += " AND collector_name = ?"
                 params.append(self.collector_filter.get())
             if self.currency_filter.get() and self.currency_filter.get() != "All":
-                query += " AND target_currency = ?"
+                base_where += " AND target_currency = ?"
                 params.append(self.currency_filter.get())
-            query, params = self._apply_payment_status_filter(
-                query, params, self.status_filter.get()
+            base_where, params = self._apply_payment_status_filter(
+                base_where, params, self.status_filter.get()
             )
             if self.date_from.get():
-                query += " AND deal_date >= ?"
+                base_where += " AND deal_date >= ?"
                 params.append(self.date_from.get())
             if self.date_to.get():
-                query += " AND deal_date <= ?"
+                base_where += " AND deal_date <= ?"
                 params.append(self.date_to.get())
-            query += " ORDER BY deal_date DESC"
-            cur.execute(query, params)
+
+            count_query = f"SELECT COUNT(*), SUM(eur_expected), SUM(eur_received), SUM(pending_eur) FROM transactions{base_where}"
+            cur.execute(count_query, params)
+            grand_row = cur.fetchone() or (0, 0.0, 0.0, 0.0)
+            self.s_total_count = grand_row[0] or 0
+            self.s_per_page = 20
+            self.s_total_pages = max(1, (self.s_total_count + self.s_per_page - 1) // self.s_per_page)
+
+            if not hasattr(self, "s_current_page") or self.s_current_page > self.s_total_pages or self.s_current_page < 1:
+                self.s_current_page = 1
+
+            offset = (self.s_current_page - 1) * self.s_per_page
+
+            query = f"SELECT deal_date, customer_name, banker_name, target_currency, eur_expected, eur_received, pending_eur, status FROM transactions{base_where} ORDER BY deal_date DESC, id DESC LIMIT ? OFFSET ?"
+            cur.execute(query, list(params) + [self.s_per_page, offset])
             rows = cur.fetchall()
+
             self.current_data = rows
             self._clear_customer_cell_highlights("summary")
             self._customer_overlays["summary"]["names"] = {}
             for item in self.summary_tree.get_children():
                 self.summary_tree.delete(item)
-            total_transactions = total_expected = total_received = total_pending = 0
+
             for index, row in enumerate(rows):
                 row_id = f"summary_{index}"
                 self._customer_overlays["summary"]["names"][row_id] = row[1]
                 values = (row[0], "", row[2], row[3], row[4], row[5], row[6], row[7])
                 self.summary_tree.insert("", "end", iid=row_id, values=values)
-                total_transactions += 1
-                total_expected += row[4] or 0
-                total_received += row[5] or 0
-                total_pending += row[6] or 0
+
             self._schedule_customer_cell_highlight("summary")
+
+            total_transactions = self.s_total_count
+            total_expected = float(grand_row[1] or 0)
+            total_received = float(grand_row[2] or 0)
+            total_pending = float(grand_row[3] or 0)
+
             self.total_transactions_label.config(
                 text=f"Total Transactions: {total_transactions}"
             )
@@ -857,6 +904,12 @@ class ReportsPage:
             self.total_pending_label.config(
                 text=f"Total Pending (EUR): €{total_pending:,.2f}"
             )
+
+            if hasattr(self, "s_page_info_label"):
+                self.s_page_info_label.config(
+                    text=f"Page {self.s_current_page} of {self.s_total_pages} (Total: {self.s_total_count})"
+                )
+
             conn.close()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to search: {e}")
