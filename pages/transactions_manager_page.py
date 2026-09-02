@@ -689,40 +689,6 @@ class TransactionsManagerPage:
             "<MouseWheel>", lambda _event: self._schedule_customer_cell_highlight()
         )
 
-    def filter_today(self):
-        today = date.today().strftime("%Y-%m-%d")
-        self.date_from.delete(0, tk.END)
-        self.date_to.delete(0, tk.END)
-        self.date_from.insert(0, today)
-        self.date_to.insert(0, today)
-        self.search_transactions()
-
-    def filter_yesterday(self):
-        yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-        self.date_from.delete(0, tk.END)
-        self.date_to.delete(0, tk.END)
-        self.date_from.insert(0, yesterday)
-        self.date_to.insert(0, yesterday)
-        self.search_transactions()
-
-    def filter_week(self):
-        today = date.today()
-        start_week = today - timedelta(days=today.weekday())
-        self.date_from.delete(0, tk.END)
-        self.date_to.delete(0, tk.END)
-        self.date_from.insert(0, start_week.strftime("%Y-%m-%d"))
-        self.date_to.insert(0, today.strftime("%Y-%m-%d"))
-        self.search_transactions()
-
-    def filter_month(self):
-        today = date.today()
-        start_month = today.replace(day=1)
-        self.date_from.delete(0, tk.END)
-        self.date_to.delete(0, tk.END)
-        self.date_from.insert(0, start_month.strftime("%Y-%m-%d"))
-        self.date_to.insert(0, today.strftime("%Y-%m-%d"))
-        self.search_transactions()
-
     def format_euro(self, value):
         return f"€{value:,.2f}"
 
