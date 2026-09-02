@@ -112,15 +112,12 @@ def _sqlite_connect():
 def _open_postgres_connection(psycopg):
     sslmode = os.environ.get("POSTGRES_SSLMODE", "").strip().strip('"').strip("'")
     if not sslmode:
-        if "127.0.0.1" in DATABASE_URL or "localhost" in DATABASE_URL:
-            sslmode = "prefer"
-        else:
-            sslmode = "require"
+        sslmode = "prefer"
 
     conn = psycopg.connect(
         DATABASE_URL,
         sslmode=sslmode,
-        connect_timeout=10,
+        connect_timeout=5,
     )
     with conn.cursor() as cur:
         cur.execute(f"SET statement_timeout = '{postgres_statement_timeout()}'")
@@ -147,15 +144,7 @@ def _safe_rollback(conn):
 def _connection_usable(conn):
     if conn is None or conn.closed:
         return False
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            cur.fetchone()
-        return True
-    except Exception:
-        _safe_close(conn)
-        return False
+    return True
 
 
 def connect_db(reuse_postgres=True):
