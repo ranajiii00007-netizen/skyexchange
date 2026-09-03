@@ -8,7 +8,7 @@ class AutoCompleteEntry(tk.Entry):
     active_entries = []
     _global_bind_done = False
 
-    def __init__(self, master, values=None, clear_if_not_selected=True, **kwargs):
+    def __init__(self, master, values=None, clear_if_not_selected=False, **kwargs):
         super().__init__(master, **kwargs)
         self.values = values or []
         self.filtered = []
@@ -274,7 +274,7 @@ class TransactionsManagerPage:
                 bg=styles.AppStyles.COLORS["white"],
             ).grid(row=0, column=col, sticky="w", padx=(5, 2))
 
-            entry = AutoCompleteEntry(row1, [], clear_if_not_selected=True, width=width)
+            entry = AutoCompleteEntry(row1, [], clear_if_not_selected=False, width=width)
             entry.configure(relief="solid", bd=1, font=styles.AppStyles.FONTS["body"])
             entry.grid(row=1, column=col, sticky="w", padx=(5, 12), pady=(0, 4))
             setattr(self, attr, entry)
@@ -483,7 +483,7 @@ class TransactionsManagerPage:
             ).grid(row=0, column=col, sticky="w", padx=(5, 2))
 
             width = 18 if col in (0, 2) else 10
-            entry = AutoCompleteEntry(row1, [], clear_if_not_selected=True, width=width)
+            entry = AutoCompleteEntry(row1, [], clear_if_not_selected=False, width=width)
             entry.configure(relief="solid", bd=1, font=styles.AppStyles.FONTS["body"])
             entry.grid(row=1, column=col, sticky="w", padx=(5, 15), pady=(0, 5))
             setattr(self, attr, entry)

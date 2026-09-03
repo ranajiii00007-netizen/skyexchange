@@ -8,7 +8,7 @@ class AutoCompleteEntry(tk.Entry):
     active_entries = []
     _global_bind_done = False
 
-    def __init__(self, master, values=None, clear_if_not_selected=True, **kwargs):
+    def __init__(self, master, values=None, clear_if_not_selected=False, **kwargs):
         super().__init__(master, **kwargs)
         self.values = values or []
         self.filtered = []
@@ -259,7 +259,7 @@ class ReceivingPage:
                 )
             else:
                 entry = AutoCompleteEntry(
-                    field_frame, [], clear_if_not_selected=True, width=14
+                    field_frame, [], clear_if_not_selected=False, width=14
                 )
                 entry.configure(relief="solid", bd=1, font=styles.AppStyles.FONTS["body"])
 
@@ -557,7 +557,7 @@ class ReceivingPage:
                 )
             else:
                 entry = AutoCompleteEntry(
-                    field_frame, [], clear_if_not_selected=True, width=14
+                    field_frame, [], clear_if_not_selected=False, width=14
                 )
                 entry.configure(relief="solid", bd=1, font=styles.AppStyles.FONTS["body"])
 
