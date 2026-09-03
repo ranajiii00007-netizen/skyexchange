@@ -2678,10 +2678,17 @@ def admin_transactions():
     cur.execute("SELECT currency_code, rate FROM currency_rates WHERE rate_date=?", (str(date.today()),))
     current_rates = {row[0]: row[1] for row in cur.fetchall()}
 
+    transaction_type = request.args.get("transaction_type", "REGULAR").strip()
+
     # Base query filter build
     where_clause = " WHERE 1=1"
     params = []
-    
+
+    if transaction_type == "PERSONAL":
+        where_clause += " AND transaction_type = 'PERSONAL'"
+    else:
+        where_clause += " AND (transaction_type = 'REGULAR' OR transaction_type IS NULL OR transaction_type = '')"
+
     if search:
         keywords = search.lower().split()
         for k in keywords:
@@ -2750,7 +2757,7 @@ def admin_transactions():
 
     filters = {
         "customer": customer, "search": search, "collector": collector, "banker": banker, 
-        "status": status, "date_from": date_from, "date_to": date_to
+        "status": status, "date_from": date_from, "date_to": date_to, "transaction_type": transaction_type
     }
     
     dropdowns = {
@@ -3186,7 +3193,7 @@ def admin_receiving():
     }
 
     # Base filter clauses
-    filter_clause = ""
+    filter_clause = " AND (transaction_type = 'REGULAR' OR transaction_type IS NULL OR transaction_type = '')"
     params = []
     if customer:
         keywords = customer.lower().split()

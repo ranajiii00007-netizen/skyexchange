@@ -925,13 +925,10 @@ class TransactionsManagerPage:
             where_clause += " AND status=?"
             params.append(self.status_filter.get())
 
-        if self.type_filter.get() != "ALL":
-            if self.type_filter.get() == "REGULAR":
-                where_clause += " AND (transaction_type=? OR transaction_type IS NULL)"
-                params.append("REGULAR")
-            else:
-                where_clause += " AND transaction_type=?"
-                params.append(self.type_filter.get())
+        if self.type_filter.get() == "PERSONAL":
+            where_clause += " AND transaction_type='PERSONAL'"
+        else:
+            where_clause += " AND (transaction_type='REGULAR' OR transaction_type IS NULL)"
 
         if self.date_from.get().strip():
             where_clause += " AND deal_date>=?"

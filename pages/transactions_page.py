@@ -434,7 +434,7 @@ class TransactionsPage:
 
         tk.Label(
             container,
-            text="Today's Transactions (Regular + Personal)",
+            text="Today's Transactions (Regular Only)",
             font=styles.AppStyles.FONTS["heading"],
             fg=styles.AppStyles.COLORS["success"],
             bg=styles.AppStyles.COLORS["white"],
@@ -798,7 +798,7 @@ class TransactionsPage:
         conn = self.db()
         cur = conn.cursor()
 
-        cur.execute("SELECT COUNT(*) FROM transactions WHERE deal_date=?", (str(date.today()),))
+        cur.execute("SELECT COUNT(*) FROM transactions WHERE deal_date=? AND (transaction_type='REGULAR' OR transaction_type IS NULL)", (str(date.today()),))
         self.total_count = cur.fetchone()[0] or 0
         self.per_page = 20
         self.total_pages = max(1, (self.total_count + self.per_page - 1) // self.per_page)
@@ -812,7 +812,7 @@ class TransactionsPage:
             """SELECT id, customer_name, collector_name, banker_name, target_currency, exchange_rate,
                       eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date,
                       COALESCE(transaction_type, 'REGULAR') as transaction_type
-                      FROM transactions WHERE deal_date=? ORDER BY id DESC LIMIT ? OFFSET ?""",
+                      FROM transactions WHERE deal_date=? AND (transaction_type='REGULAR' OR transaction_type IS NULL) ORDER BY id DESC LIMIT ? OFFSET ?""",
             (str(date.today()), self.per_page, offset),
         )
         for r in cur.fetchall():

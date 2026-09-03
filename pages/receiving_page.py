@@ -1000,7 +1000,7 @@ class ReceivingPage:
         self.r_picked_by.set_values(picked_by_values)
 
     def _pending_where_clause(self, include_status=True):
-        clauses = []
+        clauses = ["(t.transaction_type='REGULAR' OR t.transaction_type IS NULL)"]
         params = []
         if include_status:
             clauses.append("t.status='OPEN'")
@@ -1034,7 +1034,7 @@ class ReceivingPage:
         return where_clause, params
 
     def _received_where_clause(self, include_status=True):
-        clauses = []
+        clauses = ["(t.transaction_type='REGULAR' OR t.transaction_type IS NULL)"]
         params = []
         if include_status:
             clauses.append("COALESCE(t.eur_received, 0) > 0")

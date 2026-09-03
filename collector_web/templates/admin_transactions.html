@@ -200,6 +200,14 @@ function clearTxForm() {
     </label>
 
     <label>
+      Type
+      <select name="transaction_type">
+        <option value="REGULAR" {% if filters.transaction_type == 'REGULAR' or not filters.transaction_type %}selected{% endif %}>REGULAR (Default)</option>
+        <option value="PERSONAL" {% if filters.transaction_type == 'PERSONAL' %}selected{% endif %}>PERSONAL Only</option>
+      </select>
+    </label>
+
+    <label>
       From Date
       <input type="date" name="date_from" value="{{ filters.date_from }}">
     </label>
