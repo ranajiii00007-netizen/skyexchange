@@ -25,26 +25,55 @@
   <script src="/static/pwa-installer.js?v=5" defer></script>
 </head>
 <body>
-  <div class="layout-container">
+  <div class="layout-container" id="appLayout">
+    <script>
+      (function() {
+        try {
+          if (localStorage.getItem('sky_sidebar_collapsed') === 'true') {
+            document.getElementById('appLayout').classList.add('sidebar-collapsed');
+          }
+        } catch(e) {}
+      })();
+    </script>
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="appSidebar">
+      <!-- Toggle button on the side of sidebar -->
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Collapse / Expand sidebar" aria-label="Toggle sidebar">
+        <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
       <div class="sidebar-logo">
-        <h1 style="color: #ffffff;">🌌 SKY EXCHANGE</h1>
-        <small style="color: var(--brand-light); letter-spacing: 1px; font-weight: 700; font-size: 10px; display: block; margin-top: 4px; text-transform: uppercase;">Customer Portal</small>
+        <div class="logo-full">
+          <h1 style="color: #ffffff;">🌌 SKY EXCHANGE</h1>
+          <small style="color: var(--brand-light); letter-spacing: 1px; font-weight: 700; font-size: 10px; display: block; margin-top: 4px; text-transform: uppercase;">Customer Portal</small>
+        </div>
+        <div class="logo-compact" title="SKY EXCHANGE — Customer Portal">
+          <span>🌌</span>
+        </div>
       </div>
       <ul class="sidebar-menu">
         <li class="sidebar-item active">
-          <a href="{{ url_for('customer_dashboard') }}">📊 Dashboard</a>
+          <a href="{{ url_for('customer_dashboard') }}" data-tooltip="Dashboard" title="Dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Dashboard</span>
+          </a>
         </li>
       </ul>
       <div class="sidebar-footer">
-        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px; justify-content: center;">
-          📥 Download App
+        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn sidebar-action-btn" data-tooltip="Download App" title="Download App">
+          <span class="btn-icon">📥</span>
+          <span class="btn-text">Download App</span>
         </button>
-        <button onclick="shareAppLink('Customer Portal', '/customer/login')" class="btn" style="width: 100%; margin-bottom: 8px; font-size: 13px; gap: 8px; justify-content: center; background: #25d366; color: white; border: none; font-weight: bold;">
-          🟢 Share App / WhatsApp
+        <button onclick="shareAppLink('Customer Portal', '/customer/login')" class="btn sidebar-action-btn" style="background: #25d366; color: white; border: none; font-weight: bold;" data-tooltip="Share App / WhatsApp" title="Share App / WhatsApp">
+          <span class="btn-icon">🟢</span>
+          <span class="btn-text">Share App / WhatsApp</span>
         </button>
-        <a href="{{ url_for('customer_logout') }}" class="btn btn-danger" style="width: 100%;">🚪 Logout</a>
+        <a href="{{ url_for('customer_logout') }}" class="btn btn-danger sidebar-action-btn" data-tooltip="Logout" title="Logout">
+          <span class="btn-icon">🚪</span>
+          <span class="btn-text">Logout</span>
+        </a>
       </div>
     </aside>
 
@@ -52,7 +81,10 @@
     <div class="main-wrapper">
       <!-- Navbar -->
       <nav class="top-nav">
-        <h2>{% block page_title %}Customer Dashboard{% endblock %}</h2>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button type="button" class="mobile-menu-btn" onclick="document.getElementById('appLayout').classList.toggle('menu-open')" aria-label="Toggle menu">☰</button>
+          <h2>{% block page_title %}Customer Dashboard{% endblock %}</h2>
+        </div>
         <div class="nav-user">
           <span style="font-weight: 600; color: var(--brand);">👤 {{ customer_name }}</span>
         </div>
@@ -74,5 +106,22 @@
       </main>
     </div>
   </div>
+
+  <script>
+    (function() {
+      const toggleBtn = document.getElementById('sidebarToggle');
+      const layout = document.getElementById('appLayout');
+      if (toggleBtn && layout) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const isCollapsed = layout.classList.toggle('sidebar-collapsed');
+          try {
+            localStorage.setItem('sky_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+          } catch(err) {}
+          toggleBtn.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

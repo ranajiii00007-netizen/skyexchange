@@ -158,49 +158,106 @@
   <script src="/static/pwa-installer.js?v=5" defer></script>
 </head>
 <body>
-  <div class="layout-container">
+  <div class="layout-container" id="appLayout">
+    <script>
+      (function() {
+        try {
+          if (localStorage.getItem('sky_sidebar_collapsed') === 'true') {
+            document.getElementById('appLayout').classList.add('sidebar-collapsed');
+          }
+        } catch(e) {}
+      })();
+    </script>
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="appSidebar">
+      <!-- Toggle button on the side of sidebar -->
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Collapse / Expand sidebar" aria-label="Toggle sidebar">
+        <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+
       <div class="sidebar-logo">
-        <h1>🌌 SKY EXCHANGE</h1>
+        <div class="logo-full">
+          <h1>🌌 SKY EXCHANGE</h1>
+        </div>
+        <div class="logo-compact" title="SKY EXCHANGE">
+          <span>🌌</span>
+        </div>
       </div>
       <ul class="sidebar-menu">
         <li class="sidebar-item {% if active_page == 'dashboard' %}active{% endif %}">
-          <a href="{{ url_for('admin_dashboard') }}">📊 Dashboard</a>
+          <a href="{{ url_for('admin_dashboard') }}" data-tooltip="Dashboard" title="Dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-text">Dashboard</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'transactions' %}active{% endif %}">
-          <a href="{{ url_for('admin_transactions') }}">💸 Transactions</a>
+          <a href="{{ url_for('admin_transactions') }}" data-tooltip="Transactions" title="Transactions">
+            <span class="nav-icon">💸</span>
+            <span class="nav-text">Transactions</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'receiving' %}active{% endif %}">
-          <a href="{{ url_for('admin_receiving') }}">📥 Receiving</a>
+          <a href="{{ url_for('admin_receiving') }}" data-tooltip="Receiving" title="Receiving">
+            <span class="nav-icon">📥</span>
+            <span class="nav-text">Receiving</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'customers' %}active{% endif %}">
-          <a href="{{ url_for('admin_customers') }}">👥 Customers</a>
+          <a href="{{ url_for('admin_customers') }}" data-tooltip="Customers" title="Customers">
+            <span class="nav-icon">👥</span>
+            <span class="nav-text">Customers</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'collectors' %}active{% endif %}">
-          <a href="{{ url_for('admin_users') }}">🛵 Collectors</a>
+          <a href="{{ url_for('admin_users') }}" data-tooltip="Collectors" title="Collectors">
+            <span class="nav-icon">🛵</span>
+            <span class="nav-text">Collectors</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'bankers' %}active{% endif %}">
-          <a href="{{ url_for('admin_bankers') }}">🏦 Bankers</a>
+          <a href="{{ url_for('admin_bankers') }}" data-tooltip="Bankers" title="Bankers">
+            <span class="nav-icon">🏦</span>
+            <span class="nav-text">Bankers</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'rates' %}active{% endif %}">
-          <a href="{{ url_for('admin_rates') }}">📈 Currency Rates</a>
+          <a href="{{ url_for('admin_rates') }}" data-tooltip="Currency Rates" title="Currency Rates">
+            <span class="nav-icon">📈</span>
+            <span class="nav-text">Currency Rates</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'reports' %}active{% endif %}">
-          <a href="{{ url_for('admin_reports') }}">📄 Reports</a>
+          <a href="{{ url_for('admin_reports') }}" data-tooltip="Reports" title="Reports">
+            <span class="nav-icon">📄</span>
+            <span class="nav-text">Reports</span>
+          </a>
         </li>
         {% if session.get('admin_role') == 'SUPER' %}
         <li class="sidebar-item {% if active_page == 'managers' %}active{% endif %}">
-          <a href="{{ url_for('admin_managers') }}">👑 Managers</a>
+          <a href="{{ url_for('admin_managers') }}" data-tooltip="Managers" title="Managers">
+            <span class="nav-icon">👑</span>
+            <span class="nav-text">Managers</span>
+          </a>
         </li>
         <li class="sidebar-item {% if active_page == 'logs' %}active{% endif %}">
-          <a href="{{ url_for('admin_logs') }}">📋 Audit Logs</a>
+          <a href="{{ url_for('admin_logs') }}" data-tooltip="Audit Logs" title="Audit Logs">
+            <span class="nav-icon">📋</span>
+            <span class="nav-text">Audit Logs</span>
+          </a>
         </li>
         {% endif %}
       </ul>
       <div class="sidebar-footer">
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">🛵 Collector view</a>
-        <a href="{{ url_for('logout') }}" class="btn btn-danger" style="width: 100%;">🚪 Logout</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary sidebar-action-btn" data-tooltip="Collector view" title="Collector view">
+          <span class="btn-icon">🛵</span>
+          <span class="btn-text">Collector view</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger sidebar-action-btn" data-tooltip="Logout" title="Logout">
+          <span class="btn-icon">🚪</span>
+          <span class="btn-text">Logout</span>
+        </a>
       </div>
     </aside>
 
@@ -208,7 +265,10 @@
     <div class="main-wrapper">
       <!-- Navbar -->
       <nav class="top-nav">
-        <h2>{% block page_title %}Overview{% endblock %}</h2>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button type="button" class="mobile-menu-btn" onclick="document.getElementById('appLayout').classList.toggle('menu-open')" aria-label="Toggle menu">☰</button>
+          <h2>{% block page_title %}Overview{% endblock %}</h2>
+        </div>
         <div class="nav-user">
           <span>👑 System Administrator</span>
         </div>
@@ -230,5 +290,22 @@
       </main>
     </div>
   </div>
+
+  <script>
+    (function() {
+      const toggleBtn = document.getElementById('sidebarToggle');
+      const layout = document.getElementById('appLayout');
+      if (toggleBtn && layout) {
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const isCollapsed = layout.classList.toggle('sidebar-collapsed');
+          try {
+            localStorage.setItem('sky_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+          } catch(err) {}
+          toggleBtn.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
