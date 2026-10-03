@@ -890,3 +890,107 @@ tr:hover {
     display: none !important;
   }
 }
+
+/* EXE-matched Transaction Form */
+.exe-tx-card {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius, 8px);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+
+.exe-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin-bottom: 14px;
+}
+
+.exe-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exe-field label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.exe-field input,
+.exe-field select {
+  height: 36px;
+  padding: 5px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.exe-field input:focus,
+.exe-field select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.exe-field-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exe-sent-label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exe-sent-value {
+  color: #2563eb;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.exe-btn-save {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  padding: 9px 20px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: background 0.15s ease !important;
+}
+
+.exe-btn-save:hover {
+  background: #059669 !important;
+}
+
+.exe-btn-personal {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  padding: 9px 20px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: background 0.15s ease !important;
+}
+
+.exe-btn-personal:hover {
+  background: #1d4ed8 !important;
+}
+
