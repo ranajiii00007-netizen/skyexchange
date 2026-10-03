@@ -4,8 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sky Exchange — Customer Portal</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=1.2">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest_customer.json">
@@ -14,6 +13,23 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/static/icon_customer_180.png">
   <script>
+    function toggleSidebar(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const layout = document.getElementById('appLayout');
+      if (!layout) return;
+      const isCollapsed = layout.classList.toggle('sidebar-collapsed');
+      try {
+        localStorage.setItem('sky_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+      } catch(err) {}
+      const btn = document.getElementById('sidebarToggle');
+      if (btn) {
+        btn.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      }
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw_customer.js')
@@ -37,8 +53,8 @@
     </script>
     <!-- Sidebar -->
     <aside class="sidebar" id="appSidebar">
-      <!-- Toggle button on the side of sidebar -->
-      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Collapse / Expand sidebar" aria-label="Toggle sidebar">
+      <!-- Toggle button on the right side border of sidebar -->
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar(event)" title="Collapse / Expand sidebar" aria-label="Toggle sidebar" style="position: absolute; top: 22px; right: -14px; width: 28px; height: 28px; border-radius: 50%; background: #1e293b; border: 2px solid #334155; color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 9999; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);">
         <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
@@ -49,7 +65,7 @@
           <h1 style="color: #ffffff;">🌌 SKY EXCHANGE</h1>
           <small style="color: var(--brand-light); letter-spacing: 1px; font-weight: 700; font-size: 10px; display: block; margin-top: 4px; text-transform: uppercase;">Customer Portal</small>
         </div>
-        <div class="logo-compact" title="SKY EXCHANGE — Customer Portal">
+        <div class="logo-compact" title="SKY EXCHANGE — Customer Portal" style="display: none;">
           <span>🌌</span>
         </div>
       </div>
@@ -62,15 +78,15 @@
         </li>
       </ul>
       <div class="sidebar-footer">
-        <button onclick="triggerPwaInstall()" class="btn btn-success pwa-install-btn sidebar-action-btn" data-tooltip="Download App" title="Download App">
+        <button onclick="triggerPwaInstall()" class="sidebar-action-btn btn-success pwa-install-btn" data-tooltip="Download App" title="Download App">
           <span class="btn-icon">📥</span>
           <span class="btn-text">Download App</span>
         </button>
-        <button onclick="shareAppLink('Customer Portal', '/customer/login')" class="btn sidebar-action-btn" style="background: #25d366; color: white; border: none; font-weight: bold;" data-tooltip="Share App / WhatsApp" title="Share App / WhatsApp">
+        <button onclick="shareAppLink('Customer Portal', '/customer/login')" class="sidebar-action-btn" style="background: #25d366; color: white; border: none; font-weight: bold;" data-tooltip="Share App / WhatsApp" title="Share App / WhatsApp">
           <span class="btn-icon">🟢</span>
           <span class="btn-text">Share App / WhatsApp</span>
         </button>
-        <a href="{{ url_for('customer_logout') }}" class="btn btn-danger sidebar-action-btn" data-tooltip="Logout" title="Logout">
+        <a href="{{ url_for('customer_logout') }}" class="sidebar-action-btn btn-danger" data-tooltip="Logout" title="Logout">
           <span class="btn-icon">🚪</span>
           <span class="btn-text">Logout</span>
         </a>

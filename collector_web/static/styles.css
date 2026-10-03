@@ -187,58 +187,65 @@ button:active, .logout:active, .btn:active {
 /* Sidebar Styling */
 .sidebar {
   width: 260px;
-  background: #0f172a; /* Deep Slate */
+  background: #0b1120; /* Sleek midnight slate */
   color: #f8fafc;
   display: flex;
   flex-direction: column;
   border-right: 1px solid #1e293b;
   position: fixed;
+  left: 0;
+  top: 0;
   height: 100vh;
-  z-index: 50;
+  z-index: 100;
+  overflow: visible !important; /* Allows arrow button to sit nicely on the right border */
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease;
 }
 
-/* Sidebar Toggle Arrow Button on edge of sidebar */
-.sidebar-toggle-btn {
-  position: absolute;
-  top: 22px;
-  right: -13px;
-  width: 26px;
-  height: 26px;
-  background: #1e293b;
-  border: 1.5px solid #334155;
-  border-radius: 50%;
-  color: #94a3b8;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
+/* Sidebar Toggle Arrow Button - pinned to right border */
+button.sidebar-toggle-btn, .sidebar-toggle-btn {
+  position: absolute !important;
+  top: 22px !important;
+  right: -14px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  background: #1e293b !important;
+  border: 2px solid #334155 !important;
+  color: #f8fafc !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5) !important;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s !important;
 }
 
-.sidebar-toggle-btn:hover {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45);
-  transform: scale(1.1);
+button.sidebar-toggle-btn:hover, .sidebar-toggle-btn:hover {
+  background: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5) !important;
+  transform: scale(1.1) !important;
 }
 
-.sidebar-toggle-btn:active {
-  transform: scale(0.95);
+button.sidebar-toggle-btn:active, .sidebar-toggle-btn:active {
+  transform: scale(0.95) !important;
 }
 
 .sidebar-toggle-btn .toggle-arrow {
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   stroke: currentColor;
+  stroke-width: 2.5;
+  display: block;
 }
 
 /* When collapsed, rotate arrow to point right */
 .layout-container.sidebar-collapsed .sidebar-toggle-btn .toggle-arrow {
-  transform: rotate(180deg);
+  transform: rotate(180deg) !important;
 }
 
 /* Collapsed Sidebar Container */
@@ -253,33 +260,35 @@ button:active, .logout:active, .btn:active {
 
 /* Logo */
 .sidebar-logo {
-  padding: 20px 16px;
+  padding: 20px 18px;
   border-bottom: 1px solid #1e293b;
-  min-height: 70px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   position: relative;
   overflow: hidden;
+  background: #0b1120;
 }
 
 .sidebar-logo .logo-full {
-  display: block;
+  display: block !important;
   overflow: hidden;
   white-space: nowrap;
 }
 
 .sidebar-logo h1 {
-  font-size: 20px;
-  font-weight: 900;
-  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
   letter-spacing: 0.05em;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  margin: 0;
 }
 
 .sidebar-logo .logo-compact {
-  display: none;
+  display: none !important;
   width: 100%;
   text-align: center;
   font-size: 24px;
@@ -287,38 +296,46 @@ button:active, .logout:active, .btn:active {
 }
 
 .layout-container.sidebar-collapsed .sidebar-logo .logo-full {
-  display: none;
+  display: none !important;
 }
 
 .layout-container.sidebar-collapsed .sidebar-logo .logo-compact {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
 }
 
-/* Menu items */
+/* Menu items - HIDDEN SCROLLBAR WHILE FULLY SCROLLABLE */
 .sidebar-menu {
   flex: 1;
   padding: 16px 10px;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  gap: 4px;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+.sidebar-menu::-webkit-scrollbar {
+  display: none !important;  /* Chrome, Safari, Opera */
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .sidebar-item a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 11px 14px;
   color: #94a3b8;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  border-radius: 6px;
-  transition: background 0.2s, color 0.2s, padding 0.2s;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease, padding 0.2s;
   white-space: nowrap;
   position: relative;
 }
@@ -340,23 +357,25 @@ button:active, .logout:active, .btn:active {
 }
 
 .sidebar-item a:hover {
-  background: #1e293b;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+  color: #f8fafc;
 }
 
 .sidebar-item.active a {
-  background: var(--brand);
-  color: #fff;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 /* Menu items when collapsed */
 .layout-container.sidebar-collapsed .sidebar-item a {
   justify-content: center;
-  padding: 11px 0;
+  padding: 12px 0;
 }
 
 .layout-container.sidebar-collapsed .sidebar-item a .nav-text {
-  display: none;
+  display: none !important;
 }
 
 /* Tooltip on hover in collapsed mode */
@@ -373,7 +392,7 @@ button:active, .logout:active, .btn:active {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
   border: 1px solid #334155;
   pointer-events: none;
   opacity: 0;
@@ -390,11 +409,12 @@ button:active, .logout:active, .btn:active {
 
 /* Footer */
 .sidebar-footer {
-  padding: 16px 10px;
+  padding: 16px 12px;
   border-top: 1px solid #1e293b;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  background: #0b1120;
 }
 
 .sidebar-action-btn {
@@ -402,14 +422,49 @@ button:active, .logout:active, .btn:active {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 10px 14px;
   position: relative;
   text-decoration: none;
   font-size: 13px;
   font-weight: 700;
-  border-radius: 6px;
-  transition: background 0.2s, transform 0.1s;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.sidebar-action-btn.btn-secondary {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+
+.sidebar-action-btn.btn-secondary:hover {
+  background: #334155;
+  color: #ffffff;
+  border-color: #475569;
+}
+
+.sidebar-action-btn.btn-danger {
+  background: rgba(225, 29, 72, 0.15);
+  color: #fb7185;
+  border: 1px solid rgba(225, 29, 72, 0.3);
+}
+
+.sidebar-action-btn.btn-danger:hover {
+  background: #e11d48;
+  color: #ffffff;
+  border-color: #e11d48;
+}
+
+.sidebar-action-btn.btn-success {
+  background: #059669;
+  color: #ffffff;
+  border: 1px solid #10b981;
+}
+
+.sidebar-action-btn.btn-success:hover {
+  background: #047857;
 }
 
 .sidebar-action-btn .btn-icon {
@@ -423,16 +478,16 @@ button:active, .logout:active, .btn:active {
 }
 
 .layout-container.sidebar-collapsed .sidebar-footer {
-  padding: 14px 10px;
+  padding: 12px 8px;
 }
 
 .layout-container.sidebar-collapsed .sidebar-action-btn {
-  padding: 10px 0;
+  padding: 11px 0;
   width: 100%;
 }
 
 .layout-container.sidebar-collapsed .sidebar-action-btn .btn-text {
-  display: none;
+  display: none !important;
 }
 
 .layout-container.sidebar-collapsed .sidebar-action-btn::after {
@@ -448,7 +503,7 @@ button:active, .logout:active, .btn:active {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
   border: 1px solid #334155;
   pointer-events: none;
   opacity: 0;

@@ -4,11 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sky Exchange — Admin Portal</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=1.2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <script>
+  function toggleSidebar(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const layout = document.getElementById('appLayout');
+    if (!layout) return;
+    const isCollapsed = layout.classList.toggle('sidebar-collapsed');
+    try {
+      localStorage.setItem('sky_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+    } catch(err) {}
+    const btn = document.getElementById('sidebarToggle');
+    if (btn) {
+      btn.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    }
+  }
+
   function initAutocomplete(inputElement, hiddenElement, itemsList) {
     if (!inputElement || !hiddenElement) {
       console.warn("initAutocomplete: inputElement or hiddenElement is null/undefined.");
@@ -170,8 +187,8 @@
     </script>
     <!-- Sidebar -->
     <aside class="sidebar" id="appSidebar">
-      <!-- Toggle button on the side of sidebar -->
-      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" title="Collapse / Expand sidebar" aria-label="Toggle sidebar">
+      <!-- Toggle button on the right side border of sidebar -->
+      <button type="button" class="sidebar-toggle-btn" id="sidebarToggle" onclick="toggleSidebar(event)" title="Collapse / Expand sidebar" aria-label="Toggle sidebar" style="position: absolute; top: 22px; right: -14px; width: 28px; height: 28px; border-radius: 50%; background: #1e293b; border: 2px solid #334155; color: #f8fafc; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 9999; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5);">
         <svg class="toggle-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
@@ -181,7 +198,7 @@
         <div class="logo-full">
           <h1>🌌 SKY EXCHANGE</h1>
         </div>
-        <div class="logo-compact" title="SKY EXCHANGE">
+        <div class="logo-compact" title="SKY EXCHANGE" style="display: none;">
           <span>🌌</span>
         </div>
       </div>
@@ -250,11 +267,11 @@
         {% endif %}
       </ul>
       <div class="sidebar-footer">
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary sidebar-action-btn" data-tooltip="Collector view" title="Collector view">
+        <a href="{{ url_for('dashboard') }}" class="sidebar-action-btn btn-secondary" data-tooltip="Collector view" title="Collector view">
           <span class="btn-icon">🛵</span>
           <span class="btn-text">Collector view</span>
         </a>
-        <a href="{{ url_for('logout') }}" class="btn btn-danger sidebar-action-btn" data-tooltip="Logout" title="Logout">
+        <a href="{{ url_for('logout') }}" class="sidebar-action-btn btn-danger" data-tooltip="Logout" title="Logout">
           <span class="btn-icon">🚪</span>
           <span class="btn-text">Logout</span>
         </a>
