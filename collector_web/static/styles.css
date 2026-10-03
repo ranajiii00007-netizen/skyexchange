@@ -236,6 +236,10 @@ button.sidebar-toggle-btn:active, .sidebar-toggle-btn:active {
   transform: scale(0.95) !important;
 }
 
+.sidebar-toggle-btn * {
+  pointer-events: none !important;
+}
+
 .sidebar-toggle-btn .toggle-arrow {
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   stroke: currentColor;
@@ -250,12 +254,13 @@ button.sidebar-toggle-btn:active, .sidebar-toggle-btn:active {
 
 /* Collapsed Sidebar Container */
 .layout-container.sidebar-collapsed .sidebar {
-  width: 72px;
+  width: 70px !important;
 }
 
-/* Collapsed Main Wrapper */
+/* Collapsed Main Wrapper - gives much bigger screen */
 .layout-container.sidebar-collapsed .main-wrapper {
-  margin-left: 72px;
+  margin-left: 70px !important;
+  width: calc(100% - 70px) !important;
 }
 
 /* Logo */
