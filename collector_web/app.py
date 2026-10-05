@@ -2863,7 +2863,15 @@ def admin_transactions_save():
                  eur_expected, eur_received, pending_eur, foreign_amount, status, deal_date, 
                  picked_by, notes, transaction_type, received_date)
             )
-            new_tx_id = cur.lastrowid
+            new_tx_id = getattr(cur, "lastrowid", None)
+            if not new_tx_id:
+                try:
+                    cur.execute("SELECT id FROM transactions ORDER BY id DESC LIMIT 1")
+                    last_row = cur.fetchone()
+                    if last_row:
+                        new_tx_id = last_row[0]
+                except Exception:
+                    new_tx_id = None
             if banker_name and new_tx_id:
                 notify_banker(banker_name, new_tx_id, f"🔔 New trade #{new_tx_id} (€{eur_expected:.2f}) assigned to you!")
             flash("Deal created successfully.", "success")

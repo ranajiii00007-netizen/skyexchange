@@ -256,6 +256,10 @@ class PostgresCursor:
     def __iter__(self):
         return iter(self.fetchall())
 
+    @property
+    def lastrowid(self):
+        return getattr(self._cursor, "lastrowid", None)
+
     def __getattr__(self, name):
         return getattr(self._cursor, name)
 
