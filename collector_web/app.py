@@ -2748,8 +2748,10 @@ def admin_transactions():
     
     transactions = [dict(
         id=r[0], customer_name=r[1], collector_name=r[2], banker_name=r[3], target_currency=r[4],
-        exchange_rate=r[5], eur_expected=r[6], eur_received=r[7], pending_eur=r[8], foreign_amount=r[9],
-        status=r[10], deal_date=r[11], picked_by=r[12], notes=r[13], transaction_type=r[14], received_date=r[15],
+        exchange_rate=float(r[5] or 0), eur_expected=float(r[6] or 0), eur_received=float(r[7] or 0),
+        pending_eur=float(r[8] or 0), foreign_amount=float(r[9] or 0),
+        status=str(r[10] or ""), deal_date=str(r[11] or ""), picked_by=r[12], notes=r[13],
+        transaction_type=r[14] or "REGULAR", received_date=str(r[15] or "") if r[15] else "",
         bank_account_details=r[16], bank_account_attachment=r[17], banker_proof_attachment=r[18], banker_status=r[19]
     ) for r in cur.fetchall()]
     

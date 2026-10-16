@@ -4,6 +4,7 @@
 
 <script>
 const activeRates = {{ current_rates | tojson | safe }};
+const transactionsData = {{ transactions | tojson | safe }};
 
 function getActiveRate() {
   const overrideVal = parseFloat(document.getElementById('tx-override-rate').value);
@@ -95,16 +96,46 @@ function saveDeal(type) {
     return;
   }
   
-  document.getElementById('tx-type').value = type;
+  if (type) {
+    document.getElementById('tx-type').value = type;
+  }
   document.getElementById('tx-form').submit();
 }
 
+function editTxById(id) {
+  const tx = transactionsData.find(t => t.id === id || t.id == id);
+  if (!tx) {
+    console.error("Deal not found for ID:", id);
+    alert("Could not load details for deal #" + id);
+    return;
+  }
+  editTx(tx);
+}
+
 function editTx(tx) {
-  document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + tx.customer_name + ')';
+  if (!tx) return;
+  document.getElementById('form-title').innerText = '✏️ Edit Deal #' + tx.id + ' (' + (tx.customer_name || '') + ')';
   document.getElementById('tx-id').value = tx.id;
-  document.getElementById('tx-customer').value = tx.customer_name;
-  document.getElementById('tx-customer-search').value = tx.customer_name;
-  document.getElementById('tx-currency').value = tx.target_currency;
+  document.getElementById('tx-customer').value = tx.customer_name || '';
+  document.getElementById('tx-customer-search').value = tx.customer_name || '';
+  
+  const currSelect = document.getElementById('tx-currency');
+  if (currSelect) {
+    let found = false;
+    for (let i = 0; i < currSelect.options.length; i++) {
+      if (currSelect.options[i].value === tx.target_currency) {
+        found = true;
+        break;
+      }
+    }
+    if (!found && tx.target_currency) {
+      const opt = document.createElement('option');
+      opt.value = tx.target_currency;
+      opt.text = tx.target_currency;
+      currSelect.add(opt);
+    }
+    currSelect.value = tx.target_currency || '';
+  }
   
   document.getElementById('tx-collector').value = tx.collector_name || '';
   document.getElementById('tx-collector-search').value = tx.collector_name || '';
@@ -125,10 +156,20 @@ function editTx(tx) {
   const sent = parseFloat(tx.foreign_amount) || (exp * rate);
   document.getElementById('tx-sent-amount-display').innerText = sent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   
+  const saveBtn = document.getElementById('tx-save-btn');
+  if (saveBtn) {
+    saveBtn.innerText = tx.transaction_type === 'PERSONAL' ? 'Update Personal Deal' : 'Update Deal';
+  }
+
   const cancelBtn = document.getElementById('tx-edit-cancel-btn');
   if (cancelBtn) cancelBtn.style.display = 'inline-flex';
   
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const formCard = document.querySelector('.exe-tx-card');
+  if (formCard) {
+    formCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 function clearTxForm() {
@@ -150,6 +191,9 @@ function clearTxForm() {
   document.getElementById('tx-type').value = 'REGULAR';
   document.getElementById('tx-date').value = '{{ today }}';
   
+  const saveBtn = document.getElementById('tx-save-btn');
+  if (saveBtn) saveBtn.innerText = 'Save Transaction';
+
   const cancelBtn = document.getElementById('tx-edit-cancel-btn');
   if (cancelBtn) cancelBtn.style.display = 'none';
 }
@@ -324,8 +368,8 @@ function clearTxForm() {
 
     <!-- Row 4: Action Buttons -->
     <div style="display: flex; gap: 14px; align-items: center; margin-top: 14px;">
-      <button type="button" class="btn exe-btn-save" onclick="saveDeal('REGULAR')">Save Transaction</button>
-      <button type="button" class="btn exe-btn-personal" onclick="saveDeal('PERSONAL')">Save Personal Transaction</button>
+      <button type="button" id="tx-save-btn" class="btn exe-btn-save" onclick="saveDeal('REGULAR')">Save Transaction</button>
+      <button type="button" id="tx-personal-btn" class="btn exe-btn-personal" onclick="saveDeal('PERSONAL')">Save Personal Transaction</button>
       <button type="button" id="tx-edit-cancel-btn" class="btn btn-secondary" style="display: none; padding: 9px 18px;" onclick="clearTxForm()">Cancel Edit</button>
     </div>
   </form>
@@ -462,22 +506,7 @@ function clearTxForm() {
               </td>
               <td style="text-align: right;">
                 <div style="display: flex; gap: 4px; justify-content: flex-end;">
-                  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editTx({{ {
-                    'id': tx.id,
-                    'customer_name': tx.customer_name,
-                    'target_currency': tx.target_currency,
-                    'exchange_rate': tx.exchange_rate,
-                    'foreign_amount': tx.foreign_amount,
-                    'eur_expected': tx.eur_expected,
-                    'eur_received': tx.eur_received,
-                    'collector_name': tx.collector_name or '',
-                    'banker_name': tx.banker_name or '',
-                    'deal_date': tx.deal_date,
-                    'received_date': tx.received_date or '',
-                    'transaction_type': tx.transaction_type,
-                    'picked_by': tx.picked_by or '',
-                    'notes': tx.notes or ''
-                  } | tojson }})">Edit</button>
+                  <button type="button" class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="editTxById({{ tx.id }})" title="Edit deal #{{ tx.id }}">Edit</button>
                   
                   <form action="{{ url_for('admin_transactions_delete', transaction_id=tx.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this deal?');">
                     <button type="submit" class="btn btn-danger" style="padding: 4px 8px; font-size: 12px;">Delete</button>
