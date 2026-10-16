@@ -155,6 +155,95 @@ function clearTxForm() {
 }
 </script>
 
+<style>
+.exe-summary-card {
+  background: var(--paper, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: var(--radius, 8px);
+  padding: 16px 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+.exe-summary-title {
+  color: #10b981;
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  letter-spacing: -0.01em;
+}
+.exe-summary-grid {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.exe-stat-box {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 8px 6px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+}
+.exe-stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+.exe-stat-val {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.exe-stat-val.text-warning { color: #f59e0b; }
+.exe-stat-val.text-success { color: #10b981; }
+.exe-stat-val.text-primary { color: #2563eb; }
+.exe-stat-val.text-danger { color: #e11d48; }
+@media (max-width: 768px) {
+  .exe-summary-grid {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .exe-stat-box {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 120px;
+  }
+}
+</style>
+
+<!-- Today's Summary (Regular Only) (Matches .exe) -->
+<div class="card exe-summary-card">
+  <h3 class="exe-summary-title">Today's Summary (Regular Only)</h3>
+  <div class="exe-summary-grid">
+    <div class="exe-stat-box">
+      <div class="exe-stat-label">Open Deals</div>
+      <div class="exe-stat-val text-warning">{{ today_summary.open_deals }}</div>
+    </div>
+    <div class="exe-stat-box">
+      <div class="exe-stat-label">Closed Deals</div>
+      <div class="exe-stat-val text-success">{{ today_summary.closed_deals }}</div>
+    </div>
+    <div class="exe-stat-box">
+      <div class="exe-stat-label">Expected</div>
+      <div class="exe-stat-val text-primary">€{{ today_summary.expected | money }}</div>
+    </div>
+    <div class="exe-stat-box">
+      <div class="exe-stat-label">Received</div>
+      <div class="exe-stat-val text-success">€{{ today_summary.received | money }}</div>
+    </div>
+    <div class="exe-stat-box">
+      <div class="exe-stat-label">Pending</div>
+      <div class="exe-stat-val text-danger">€{{ today_summary.pending | money }}</div>
+    </div>
+  </div>
+</div>
+
 <!-- Form to Add/Edit Transaction (Matches .exe) -->
 <div class="card exe-tx-card">
   <h3 id="form-title" style="color: #10b981; font-size: 18px; font-weight: 800; margin-bottom: 16px;">New Transaction</h3>

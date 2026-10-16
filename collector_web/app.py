@@ -2753,6 +2753,28 @@ def admin_transactions():
         bank_account_details=r[16], bank_account_attachment=r[17], banker_proof_attachment=r[18], banker_status=r[19]
     ) for r in cur.fetchall()]
     
+    # Today's Summary (Regular Only) matching desktop .exe
+    cur.execute(
+        """
+        SELECT COALESCE(SUM(eur_expected), 0),
+               COALESCE(SUM(eur_received), 0),
+               COALESCE(SUM(pending_eur), 0),
+               COALESCE(SUM(CASE WHEN status='OPEN' THEN 1 ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN status='CLOSED' THEN 1 ELSE 0 END), 0)
+        FROM transactions
+        WHERE deal_date = ? AND (transaction_type = 'REGULAR' OR transaction_type IS NULL OR transaction_type = '')
+        """,
+        (str(date.today()),),
+    )
+    sum_row = cur.fetchone() or (0, 0, 0, 0, 0)
+    today_summary = {
+        "expected": float(sum_row[0] or 0),
+        "received": float(sum_row[1] or 0),
+        "pending": float(sum_row[2] or 0),
+        "open_deals": int(sum_row[3] or 0),
+        "closed_deals": int(sum_row[4] or 0),
+    }
+
     conn.close()
 
     filters = {
@@ -2773,7 +2795,8 @@ def admin_transactions():
 
     return render_template(
         "admin_transactions.html", active_page="transactions", dropdowns=dropdowns, 
-        current_rates=current_rates, transactions=transactions, filters=filters, pagination=pagination, today=str(date.today())
+        current_rates=current_rates, transactions=transactions, filters=filters, pagination=pagination, today=str(date.today()),
+        today_summary=today_summary
     )
 
 
