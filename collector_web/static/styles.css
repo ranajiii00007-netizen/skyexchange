@@ -1073,3 +1073,19 @@ tr:hover {
   }
 }
 
+.exe-btn-clear {
+  background: #64748b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  padding: 9px 20px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: background 0.15s ease !important;
+}
+
+.exe-btn-clear:hover {
+  background: #475569 !important;
+}
+

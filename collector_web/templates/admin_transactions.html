@@ -69,12 +69,16 @@ function onCurrencyChange() {
 
 function saveDeal(type) {
   const customer = document.getElementById('tx-customer').value.trim();
+  const customerSearch = document.getElementById('tx-customer-search').value.trim();
   const currency = document.getElementById('tx-currency').value.trim();
   
-  if (!customer) {
+  if (!customer && !customerSearch) {
     alert("Customer is required");
     document.getElementById('tx-customer-search').focus();
     return;
+  }
+  if (!customer && customerSearch) {
+    document.getElementById('tx-customer').value = customerSearch;
   }
   if (!currency) {
     alert("Currency is required");
@@ -99,7 +103,103 @@ function saveDeal(type) {
   if (type) {
     document.getElementById('tx-type').value = type;
   }
+
+  // Preserve form values across submission so fields do not clear
+  try {
+    const isEdit = Boolean(document.getElementById('tx-id').value);
+    const formSnapshot = {
+      id: isEdit ? document.getElementById('tx-id').value : '',
+      customer: document.getElementById('tx-customer').value,
+      customer_search: document.getElementById('tx-customer-search').value,
+      currency: document.getElementById('tx-currency').value,
+      collector: document.getElementById('tx-collector').value,
+      collector_search: document.getElementById('tx-collector-search').value,
+      banker: document.getElementById('tx-banker').value,
+      banker_search: document.getElementById('tx-banker-search').value,
+      override_rate: document.getElementById('tx-override-rate').value,
+      local_currency: document.getElementById('tx-local-currency').value,
+      eur_expected: document.getElementById('tx-eur-expected').value,
+      notes: document.getElementById('tx-notes').value,
+      type: document.getElementById('tx-type').value || 'REGULAR',
+      is_edit: isEdit
+    };
+    sessionStorage.setItem('sky_keep_tx_form', JSON.stringify(formSnapshot));
+  } catch(err) {
+    console.error("Error saving form state:", err);
+  }
+
   document.getElementById('tx-form').submit();
+}
+
+function restoreFormState() {
+  try {
+    const raw = sessionStorage.getItem('sky_keep_tx_form');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data) return;
+
+    if (data.customer) {
+      document.getElementById('tx-customer').value = data.customer;
+      document.getElementById('tx-customer-search').value = data.customer_search || data.customer;
+    }
+    if (data.currency) {
+      const currSelect = document.getElementById('tx-currency');
+      if (currSelect) {
+        let found = false;
+        for (let i = 0; i < currSelect.options.length; i++) {
+          if (currSelect.options[i].value === data.currency) {
+            found = true;
+            break;
+          }
+        }
+        if (!found && data.currency) {
+          const opt = document.createElement('option');
+          opt.value = data.currency;
+          opt.text = data.currency;
+          currSelect.add(opt);
+        }
+        currSelect.value = data.currency;
+      }
+    }
+    if (data.collector !== undefined) {
+      document.getElementById('tx-collector').value = data.collector || '';
+      document.getElementById('tx-collector-search').value = data.collector_search || data.collector || '';
+    }
+    if (data.banker !== undefined) {
+      document.getElementById('tx-banker').value = data.banker || '';
+      document.getElementById('tx-banker-search').value = data.banker_search || data.banker || '';
+    }
+    if (data.override_rate !== undefined && data.override_rate !== '') {
+      document.getElementById('tx-override-rate').value = data.override_rate;
+    }
+    if (data.local_currency !== undefined && data.local_currency !== '') {
+      document.getElementById('tx-local-currency').value = data.local_currency;
+    }
+    if (data.eur_expected !== undefined && data.eur_expected !== '') {
+      document.getElementById('tx-eur-expected').value = data.eur_expected;
+    }
+    if (data.notes !== undefined) {
+      document.getElementById('tx-notes').value = data.notes || '';
+    }
+    if (data.type) {
+      document.getElementById('tx-type').value = data.type;
+    }
+
+    calculateSent();
+
+    if (data.is_edit && data.id) {
+      document.getElementById('tx-id').value = data.id;
+      document.getElementById('form-title').innerText = '✏️ Edit Deal #' + data.id + ' (' + (data.customer || '') + ')';
+      const saveBtn = document.getElementById('tx-save-btn');
+      if (saveBtn) saveBtn.innerText = data.type === 'PERSONAL' ? 'Update Personal Deal' : 'Update Deal';
+      const cancelBtn = document.getElementById('tx-edit-cancel-btn');
+      if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+    } else {
+      document.getElementById('tx-id').value = '';
+    }
+  } catch(err) {
+    console.error("Error restoring form state:", err);
+  }
 }
 
 function editTxById(id) {
@@ -173,6 +273,10 @@ function editTx(tx) {
 }
 
 function clearTxForm() {
+  try {
+    sessionStorage.removeItem('sky_keep_tx_form');
+  } catch(e) {}
+
   document.getElementById('form-title').innerText = 'New Transaction';
   document.getElementById('tx-id').value = '';
   document.getElementById('tx-customer').value = '';
@@ -194,8 +298,14 @@ function clearTxForm() {
   const saveBtn = document.getElementById('tx-save-btn');
   if (saveBtn) saveBtn.innerText = 'Save Transaction';
 
+  const personalBtn = document.getElementById('tx-personal-btn');
+  if (personalBtn) personalBtn.innerText = 'Save Personal Transaction';
+
   const cancelBtn = document.getElementById('tx-edit-cancel-btn');
   if (cancelBtn) cancelBtn.style.display = 'none';
+
+  const custInput = document.getElementById('tx-customer-search');
+  if (custInput) custInput.focus();
 }
 </script>
 
@@ -258,6 +368,20 @@ function clearTxForm() {
     flex: 1 1 calc(50% - 8px);
     min-width: 120px;
   }
+}
+.exe-btn-clear {
+  background: #64748b !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  padding: 9px 20px !important;
+  border-radius: 4px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  transition: background 0.15s ease !important;
+}
+.exe-btn-clear:hover {
+  background: #475569 !important;
 }
 </style>
 
@@ -367,9 +491,10 @@ function clearTxForm() {
     </div>
 
     <!-- Row 4: Action Buttons -->
-    <div style="display: flex; gap: 14px; align-items: center; margin-top: 14px;">
+    <div style="display: flex; gap: 14px; align-items: center; margin-top: 14px; flex-wrap: wrap;">
       <button type="button" id="tx-save-btn" class="btn exe-btn-save" onclick="saveDeal('REGULAR')">Save Transaction</button>
       <button type="button" id="tx-personal-btn" class="btn exe-btn-personal" onclick="saveDeal('PERSONAL')">Save Personal Transaction</button>
+      <button type="button" id="tx-clear-btn" class="btn exe-btn-clear" onclick="clearTxForm()">Clear</button>
       <button type="button" id="tx-edit-cancel-btn" class="btn btn-secondary" style="display: none; padding: 9px 18px;" onclick="clearTxForm()">Cancel Edit</button>
     </div>
   </form>
@@ -583,6 +708,8 @@ initAutocomplete(
 );
 
 document.addEventListener('DOMContentLoaded', function() {
+  restoreFormState();
+
   const saveForm = document.querySelector('form[action*="/admin/transactions/save"]');
   if (saveForm && window.location.search) {
     saveForm.action = saveForm.action + window.location.search;
